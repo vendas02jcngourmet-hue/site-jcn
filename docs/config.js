@@ -3,6 +3,6 @@
 window.CONFIG = {
   url: "https://kazrmgbqrfanhbtdxidi.supabase.co",
   chave: "sb_publishable_a9MtS1WxDXpsGPR6z4B3Rg_TvdUqdr8",
-  dominio_dos_logins: "",      // em branco = usa o domínio do próprio site. Serve só para formar o endereço interno das lojas (loja-nome@dominio); nenhum e-mail é enviado
+  dominio_dos_logins: "jcngourmet.com.br",      // em branco = usa o domínio do próprio site. Serve só para formar o endereço interno das lojas (loja-nome@dominio); nenhum e-mail é enviado
   segundos_entre_atualizacoes: 30
 };

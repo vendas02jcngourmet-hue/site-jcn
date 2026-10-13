@@ -2,7 +2,7 @@
 import json, os, base64, re, shutil, sys, hashlib
 R = os.path.dirname(os.path.abspath(__file__)); S = R + '/src'; D = os.environ.get('OUT', R + '/dist')
 URL = os.environ.get('SB_URL', 'https://kazrmgbqrfanhbtdxidi.supabase.co'); CHAVE = os.environ.get('SB_CHAVE', 'sb_publishable_a9MtS1WxDXpsGPR6z4B3Rg_TvdUqdr8')
-DOMINIO = os.environ.get('DOMINIO_LOGINS', '')
+DOMINIO = os.environ.get('DOMINIO_LOGINS', 'jcngourmet.com.br')
 shutil.rmtree(D, ignore_errors=True); os.makedirs(D + '/img')
 EXT = {'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/svg+xml': 'svg', 'image/gif': 'gif'}
 imgs = json.load(open(S + '/images.json')); mapa = {}
