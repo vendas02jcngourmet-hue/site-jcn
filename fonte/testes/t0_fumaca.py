@@ -1,0 +1,26 @@
+import sys; sys.path.insert(0, '/home/claude/real/testes')
+from base import *
+srv = subir()
+try:
+  with sync_playwright() as p:
+    br = p.chromium.launch(); pg, errs = pagina(br)
+    pg.goto(B); pg.wait_for_timeout(2500)
+    ok(not errs, 'abre sem erro no console: ' + ' | '.join(errs)[:400])
+    ok(pg.inner_text('#heroTitle') != '', 'abertura: ' + pg.inner_text('#heroTitle'))
+    n = pg.locator('#rail button').count(); ok(n == 11, f'onze fogões da Linha Colors vindos do banco: {n}')
+    img = pg.get_attribute('#model img', 'src'); ok(img and img.startswith('img/'), 'foto do modelo vem da pasta img/: ' + str(img))
+    pg.screenshot(path='/home/claude/real/testes/shots/t0_home.png')
+    pg.evaluate("document.querySelector('#vitrine').scrollIntoView()"); pg.wait_for_timeout(600)
+    cards = pg.locator('#vitrine .card').count(); txt = pg.inner_text('#vitrine')[:300].replace('\n', ' | ')
+    ok(cards > 0 and 'R$ 1.788,00' in pg.inner_text('#vitrine'), f'loja do site com preço de tabela + 20%: {cards} cartões; {txt}')
+    pg.screenshot(path='/home/claude/real/testes/shots/t0_loja.png')
+    entrar(pg, 'vendas', 'admin@jcn.test', 'errada')
+    ok('incorretos' in pg.inner_text('.err'), 'senha errada: ' + pg.inner_text('.err'))
+    entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026')
+    ok(len(nav(pg)) == 9, 'administrador entra: ' + ' | '.join(nav(pg)))
+    pg.screenshot(path='/home/claude/real/testes/shots/t0_admin.png')
+    ok(not errs, 'sem erro no console depois do login: ' + ' | '.join(errs)[:400])
+    print(recusas())
+finally:
+  srv.terminate()
+print('\nFALHAS:', F if F else 'nenhuma')

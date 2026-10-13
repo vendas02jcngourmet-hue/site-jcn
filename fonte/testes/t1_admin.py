@@ -1,0 +1,85 @@
+# Administrador: usuários, produtos, fotos, categorias, textos do site, PIX, loja do site e contas de e-commerce — tudo gravando no banco
+import sys; sys.path.insert(0, '/home/claude/real/testes')
+from base import *
+srv = subir()
+pid = lambda cod: banco(f"select id from produtos where codigo = '{cod}'")
+try:
+  with sync_playwright() as p:
+    br = p.chromium.launch(); pg, errs = pagina(br); W = lambda ms=250: pg.wait_for_timeout(ms)
+    pg.goto(B); W(1500); entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026')
+    # ---------- usuários
+    ir(pg, 'usuarios'); ok(pg.locator('.tbl tbody tr').count() == 1 and 'admin@jcn.test' in pg.inner_text('.tbl tbody'), 'lista de usuários vem do banco: só a administração')
+    pg.fill('#nuNome', 'Marina Tavares'); pg.fill('#nuEmail', 'marina@jcn.test'); pg.select_option('#nuPapel', 'vendedor'); pg.click('[data-act=user-add]'); W()
+    ok('senha inicial' in toast(pg), 'sem senha inicial não cria: ' + toast(pg))
+    pg.click('[data-act=user-gerar]'); senhaM = pg.input_value('#nuSenha'); ok(len(senhaM) >= 10, 'gera uma senha forte: ' + senhaM)
+    pg.fill('#nuSenha', 'Marina#2026'); pg.click('[data-act=user-add]'); parado(pg)
+    ok('marina@jcn.test' in pg.inner_text('.acesso') and 'Marina#2026' in pg.inner_text('.acesso') and pg.locator('.tbl tbody tr').count() == 2, 'vendedora criada; e-mail e senha aparecem para enviar à pessoa')
+    ok(banco("select papel || '|' || (encrypted_password like '$2%')::text || '|' || (encrypted_password <> 'Marina#2026')::text from perfis p join auth.users u on u.id = p.id where p.email = 'marina@jcn.test'") == 'vendedor|true|true', 'no banco: perfil vendedor e senha guardada embaralhada (bcrypt), nunca em texto')
+    for nome, email, papel, senha in [('Paulo Mendes', 'paulo@jcn.test', 'representante', 'Paulo#2026'), ('Bruno Castro', 'bruno@jcn.test', 'vendedor', 'Bruno#2026')]:
+        pg.fill('#nuNome', nome); pg.fill('#nuEmail', email); pg.select_option('#nuPapel', papel); pg.fill('#nuSenha', senha); pg.click('[data-act=user-add]'); parado(pg)
+    ok(banco("select string_agg(papel::text, ',' order by email) from perfis") == 'admin,vendedor,vendedor,representante', 'quatro perfis no banco: ' + banco("select string_agg(email || '=' || papel, ', ' order by email) from perfis"))
+    pg.fill('#nuNome', 'Repetida'); pg.fill('#nuEmail', 'marina@jcn.test'); pg.fill('#nuSenha', 'Outra#2026'); pg.click('[data-act=user-add]'); W()
+    ok('Já existe' in toast(pg), 'e-mail repetido é recusado: ' + toast(pg))
+    # cadastro que parou no meio: o login existe no Auth, mas sem perfil
+    banco("insert into auth.users (email, encrypted_password, email_confirmed_at) values ('rita@jcn.test', crypt('qualquer', gen_salt('bf', 4)), now())")
+    pg.fill('#nuNome', 'Rita Prado'); pg.fill('#nuEmail', 'rita@jcn.test'); pg.select_option('#nuPapel', 'representante'); pg.fill('#nuSenha', 'Rita#2026x'); pg.click('[data-act=user-add]'); parado(pg)
+    ok(banco("select count(*) from perfis where email = 'rita@jcn.test' and papel = 'representante'") == '1' and banco("select (encrypted_password = crypt('Rita#2026x', encrypted_password))::text from auth.users where email = 'rita@jcn.test'") == 'true', 'cadastro interrompido é retomado: perfil criado e senha nova valendo')
+    # desativar e nova senha
+    pg.click('tr:has-text("Rita Prado") [data-act=toggle-user]'); parado(pg); ok(banco("select ativo::text from perfis where email = 'rita@jcn.test'") == 'false', 'desativar usuário grava no banco')
+    pg.click('tr:has-text("Bruno Castro") [data-act=user-senha]'); W(); pg.click('tr:has-text("Bruno Castro") [data-act=user-senha]'); parado(pg)
+    nova = pg.inner_text('#acDados dd >> nth=1'); ok('Bruno Castro' in pg.inner_text('.acesso') and banco(f"select (encrypted_password = crypt('{nova}', encrypted_password))::text from auth.users where email = 'bruno@jcn.test'") == 'true', 'administrador define senha nova para outra pessoa: ' + nova)
+    pg.screenshot(path=R + '/testes/shots/t1_usuarios.png')
+    # ---------- produtos
+    ir(pg, 'produtos'); pg.fill('#bp', 'FG4FSD-AZU'); pg.press('#bp', 'Enter'); W(); pg.click('[data-act=editar-produto]'); W()
+    pg.fill('[data-f="preco"]', '1500'); pg.click('[data-act=salvar-produto]'); parado(pg)
+    ok(banco(f"select valor from precos where produto_id = '{pid('FG4FSD-AZU')}'") == '1500.00', 'preço da Zilda alterado no banco: 1500,00')
+    ok(banco(f"select preco from vitrine where produto_id = '{pid('FG4FSD-AZU')}'") == '1800.00', 'e a loja do site passa a cobrar 1800,00 (tabela + 20%)')
+    pg.fill('#bp', 'FF006'); pg.press('#bp', 'Enter'); W(); pg.click('[data-act=toggle-prod]'); parado(pg)
+    ok(banco("select ativo::text from produtos where codigo = 'FF006'") == 'false', 'desativar produto grava no banco'); pg.click('[data-act=toggle-prod]'); parado(pg)
+    pg.fill('#bp', ''); pg.press('#bp', 'Enter'); W(); pg.click('[data-act=novo-produto]'); W()
+    pg.fill('[data-f="nome"]', 'Fogão de teste'); pg.fill('[data-f="codigo"]', 'TST001'); pg.fill('[data-f="cor"]', 'Grafite'); pg.fill('[data-f="preco"]', '999.9')
+    pg.set_input_files('[data-file=foto-produto]', FX + 'comprovante.png'); W(900); pg.screenshot(path=R + '/testes/shots/t1_produto.png')
+    pg.click('[data-act=salvar-produto]'); parado(pg, 900)
+    lin = banco("select p.nome || '|' || x.valor || '|' || f.caminho from produtos p join precos x on x.produto_id = p.id join fotos_produto f on f.produto_id = p.id where p.codigo = 'TST001'")
+    ok(lin.startswith('Fogão de teste|999.90|produtos/') and lin.endswith('.jpg'), 'produto novo com preço e foto: ' + lin)
+    cam = lin.split('|')[2]; st = urllib.request.urlopen(B + 'storage/v1/object/public/publico/' + cam).status
+    ok(st == 200 and banco(f"select count(*) from storage.objects where bucket_id = 'publico' and name = '{cam}'") == '1', 'a foto ficou no Storage público e abre pelo endereço')
+    pg.fill('#bp', 'TST001'); pg.press('#bp', 'Enter'); W(); im = pg.get_attribute('.tbl tbody img', 'src') or ''
+    ok('/storage/v1/object/public/publico/produtos/' in im and pg.evaluate("document.querySelector('.tbl tbody img').naturalWidth") > 0, 'a foto aparece na lista de produtos')
+    pg.fill('#bp', 'FF006'); pg.press('#bp', 'Enter'); W(); pg.click('[data-act=editar-produto]'); W(); pg.fill('[data-f="codigo"]', 'TST001'); pg.click('[data-act=salvar-produto]'); parado(pg)
+    ok('código' in (toast(pg) + pg.inner_text('.drawer') if pg.locator('.drawer').count() else toast(pg)).lower() and banco("select count(*) from produtos where codigo = 'TST001'") == '1', 'código repetido não entra: ' + toast(pg)[:70])
+    if pg.locator('.drawer .x').count(): pg.click('.drawer .x')
+    pg.fill('#bp', 'TST001'); pg.press('#bp', 'Enter'); W(); pg.click('[data-act=editar-produto]'); W(); pg.click('[data-act=remover-produto]'); W(); pg.click('[data-act=remover-produto]') if pg.locator('[data-act=remover-produto]').count() else None; parado(pg)
+    ok(banco("select count(*) from produtos where codigo = 'TST001'") == '0', 'produto removido some do banco'); print('   aviso:', toast(pg))
+    # ---------- categorias
+    ir(pg, 'categorias'); pg.fill('#novaCat', 'Coifas'); pg.click('[data-act=cat-add]'); parado(pg)
+    ok(banco("select count(*) from categorias where nome = 'Coifas' and ativa") == '1', 'categoria nova gravada')
+    pg.locator('tr:has(input[value="Coifas"]) [data-act=toggle-cat], li:has(input[value="Coifas"]) [data-act=toggle-cat]').first.click(); parado(pg)
+    ok(banco("select ativa::text from categorias where nome = 'Coifas'") == 'false', 'categoria desativada no banco')
+    # ---------- textos do site, PIX e loja
+    ir(pg, 'conteudo'); pg.fill('[data-k=heroTitulo]', 'Onze fogões, onze histórias.'); pg.press('[data-k=heroTitulo]', 'Tab'); parado(pg)
+    ok(banco("select valor->>'heroTitulo' from conteudo_site where chave = 'site'") == 'Onze fogões, onze histórias.', 'título da abertura gravado no banco')
+    pg.set_input_files('[data-file=foto-galeria]', FX + 'comprovante.png'); parado(pg, 1200)
+    gal = json.loads(banco("select valor->'galeria' from conteudo_site where chave = 'site'")); ok(len(gal) == 5 and gal[-1].startswith('pub:site/'), 'foto nova da galeria no Storage: ' + gal[-1][:40])
+    pg.fill('#ljAcr', '25'); pg.press('#ljAcr', 'Tab'); parado(pg)
+    ok(banco("select valor->>'acrescimo' from configuracoes where chave = 'loja_site'") == '25' and banco(f"select preco from vitrine where produto_id = '{pid('FG4FSD-PRE')}'") == '1862.50', 'acréscimo da loja do site em 25%: Carlos a 1862,50')
+    pg.fill('#ljAcr', '20'); pg.press('#ljAcr', 'Tab'); parado(pg)
+    ir(pg, 'lojas'); pg.fill('#pxChave', '12.345.678/0001-95'); pg.press('#pxChave', 'Tab'); parado(pg); pg.fill('#pxFav', 'JCN Gourmet Ltda'); pg.press('#pxFav', 'Tab'); parado(pg)
+    ok(json.loads(banco("select valor from configuracoes where chave = 'pix'")) == {'chave': '12.345.678/0001-95', 'favorecido': 'JCN Gourmet Ltda', 'banco': ''}, 'chave PIX gravada em configurações')
+    # ---------- conta de e-commerce criada pelo administrador
+    pg.click('[data-act=nova-conta]'); W(); marina = banco("select id from perfis where email = 'marina@jcn.test'")
+    pg.fill('#ctNome', 'Empório Serra'); pg.fill('#ctLogin', 'emporioserra'); pg.fill('#ctSenha', 'Emporio#2026'); pg.select_option('#ctVend', marina)
+    pg.click('[data-act=lib-colors]'); W(); pg.fill('#pv-' + pid('FG4FSD-AZU'), '1400'); pg.check('#lb-' + pid('FF011')); W(); pg.fill('#pv-' + pid('FF011'), '650'); pg.click('[data-act=salvar-conta]'); parado(pg, 900)
+    ok('emporioserra' in pg.inner_text('.acesso') and 'Emporio#2026' in pg.inner_text('.acesso'), 'conta criada: login e senha na tela para enviar à loja')
+    lj = banco("select email || '|' || papel || '|' || (vendedor_id = '" + marina + "')::text from perfis where login = 'emporioserra'"); ok(lj == 'loja-emporioserra@jcn.test|ecommerce|true', 'perfil da loja no banco, no nome da vendedora: ' + lj)
+    ok(banco("select count(*) || '|' || max(preco) from catalogo_loja c join perfis l on l.id = c.loja_id where l.login = 'emporioserra'") == '12|1490.00' and banco(f"select preco from catalogo_loja where produto_id = '{pid('FG4FSD-AZU')}'") == '1400.00', '12 produtos liberados com os valores definidos')
+    pg.click('tr:has-text("Empório Serra") [data-act=editar-conta]'); W(); pg.uncheck('#lb-' + pid('FG4FSD-BRA')); W(); pg.fill('#pv-' + pid('FF011'), '640'); pg.fill('#ctSenha', 'Emporio#Nova1'); pg.click('[data-act=salvar-conta]'); parado(pg, 900)
+    ok(banco("select count(*) from catalogo_loja") == '11' and banco(f"select preco from catalogo_loja where produto_id = '{pid('FF011')}'") == '640.00' and banco("select (encrypted_password = crypt('Emporio#Nova1', encrypted_password))::text from auth.users where email = 'loja-emporioserra@jcn.test'") == 'true', 'editar a conta: tira produto, muda valor e troca a senha')
+    pg.screenshot(path=R + '/testes/shots/t1_lojas.png')
+    # ---------- o visitante enxerga o que mudou
+    v, e2 = pagina(br); v.goto(B); v.wait_for_timeout(2000)
+    ok(v.inner_text('#heroTitle') == 'Onze fogões, onze histórias.' and v.locator('#gallery img').count() == 5, 'visitante vê o título novo e a foto nova da galeria')
+    ok(not errs and not e2, 'sem erros no console: ' + ' | '.join(errs + e2)[:300]); print('recusas do servidor:', recusas())
+finally:
+  srv.terminate()
+print('\nFALHAS:', F if F else 'nenhuma')
