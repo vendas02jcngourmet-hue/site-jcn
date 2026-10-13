@@ -2063,6 +2063,8 @@ const NUCLEO = {
       email = await SB.rpc('email_do_login', { p_login: identificador });
       if (!email) { const e = new Error('Invalid login credentials'); e.code = 'invalid_credentials'; throw e; }
     }
+    // na equipe interna, quem digita só o nome (ex.: adminmaster) entra como nome@domínio do site
+    else if (!identificador.includes('@')) email = identificador + '@' + String(CONFIG.dominio_dos_logins || location.hostname).replace(/^www\./, '');
     await SB.entrar(email, senha);
     await carregarContas();
     const u = state.usuarios.find(x => x.id === SB.id);
