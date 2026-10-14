@@ -495,7 +495,6 @@ const acts = {
   'ver-arq': e => verArquivo(e.dataset.id),
   'baixar-arq': e => baixarArquivo(e.dataset.id),
   // site
-  'modelo': e => { ui.modelo = e.dataset.id; renderSite(); const b = $(`#rail [data-id="${e.dataset.id}"]`); if (b) b.focus(); },
   'ver-modelo': e => irParaModelo(e.dataset.id),
   // produtos
   'so-sem-preco': e => { ui.soSemPreco = e.checked; renderApp(); },

@@ -406,26 +406,6 @@ function renderSite() {
   const c = state.conteudo;
   $('#heroTitle').textContent = c.heroTitulo; $('#heroText').textContent = c.heroTexto;
   $('#txtG').textContent = c.txtG; $('#txtR').textContent = c.txtR;
-  const lista = colors();
-  if (!lista.find(p => p.id === ui.modelo)) ui.modelo = lista[0] ? lista[0].id : null;
-  $('#rail').innerHTML = lista.map(p => `<button data-act="modelo" data-id="${esc(p.id)}" aria-pressed="${p.id === ui.modelo}"><i style="background:${esc(p.hex)}"></i>${esc(p.nome)}</button>`).join('');
-  const p = prod(ui.modelo);
-  $('#model').innerHTML = !p ? `<p class="lead">Nenhum modelo da Linha Colors está ativo no momento.</p>` : `
-    <div class="model-photo" style="background:${esc(fundoDe(p.hex))}">
-      <span class="corner a"></span><span class="corner b"></span>
-      <img src="${src(p.fotos[0])}" alt="Fogão ${esc(p.nome)}, cor ${esc(p.cor)}">
-    </div>
-    <div class="model-info">
-      <h3>${esc(p.nome)}</h3>
-      <p class="code">${esc(p.cor)}${p.codigo ? ' — modelo ' + esc(p.codigo) : ''}</p>
-      ${p.slogan ? `<p class="slogan">${esc(p.slogan)}</p>` : ''}
-      <p class="story">${esc(p.historia)}</p>
-      <table class="specs"><tbody>${p.specs.map(([k, v]) => `<tr><th scope="row">${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>
-      <div class="buy">
-        <span class="price">${p.mostrar_preco && precoSite(p) > 0 ? brl(precoSite(p)) : 'Preço sob consulta'}</span>
-        <a class="btn" target="_blank" rel="noopener" href="https://wa.me/5517991519932?text=${encodeURIComponent('Olá! Quero um orçamento do fogão ' + p.nome + ' (' + p.cor + '), Linha Colors.')}">Pedir orçamento no WhatsApp</a>
-      </div>
-    </div>`;
   $('#gallery').innerHTML = c.galeria.map(r => `<figure class="${r === 'img:cover' ? 'wide' : ''}"><img loading="lazy" src="${src(r)}" alt="${r === 'img:cover' ? 'Família tomando café na cozinha, com um fogão Colors ao fundo' : 'Detalhe das grelhas e dos queimadores'}"></figure>`).join('');
   renderLinhas();
   if (typeof renderVitrine === 'function') renderVitrine();            // loja do consumidor final, depois de tudo
@@ -467,9 +447,11 @@ function irParaLinha(i) {
   const sec = pal.lines, N = pal.lp.length; if (N < 2) return sec.scrollIntoView();
   scrollTo({ top: sec.offsetTop + (sec.offsetHeight - innerHeight) * Math.min(1, (i + .08) / (N - 1)), behavior: 'auto' });
 }
+// faixa colorida da abertura: leva à loja e abre a ficha daquele fogão
 function irParaModelo(id) {
-  const p = prod(id) || state.catalogo.produtos.find(x => x.leg === id);
-  if (p && p.ativo) ui.modelo = p.id;
-  renderSite();
-  $('#modelos').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'auto' : 'smooth' });
+  const p = prod(id) || state.catalogo.produtos.find(x => x.leg === id), loja = $('#loja');
+  if (loja && !loja.hidden) {
+    loja.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion:reduce)').matches ? 'auto' : 'smooth' });
+    if (p && p.ativo && typeof naVitrine === 'function' && naVitrine().some(x => x.id === p.id)) { ui.drawer = { tipo: 'ficha', ids: [p.id], ctx: 'site', pub: true, sel: null, forno: '', qtd: 1 }; renderDrawer(); }
+  } else $('#galeria').scrollIntoView();
 }
