@@ -498,3 +498,16 @@ table.tbl.lib tr.grp .btn{min-height:26px;padding:2px 8px;font-size:.8rem;vertic
 .dia input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
 .dia.on{background:var(--brand-solid);border-color:var(--brand-solid);color:var(--on-brand)}
 .dia:has(input:focus-visible){outline:3px solid var(--navy-hi);outline-offset:2px}
+/* ============ Galeria de fotos ============ */
+.galcat h2{font:700 1.15rem/1.2 var(--f-ui);color:var(--brand);margin:22px 0 10px}
+.galtop{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.galgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+.gfoto{margin:0;display:grid;gap:6px}
+.gimg{display:block;padding:0;border:1px solid var(--line);border-radius:4px;background:#ECEBE6;aspect-ratio:1;overflow:hidden;cursor:zoom-in}
+.gimg img{width:100%;height:100%;object-fit:contain;display:block}
+.gimg:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+.galcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.galcard{gap:10px}
+.galcard b{font-size:.98rem;line-height:1.25}
+.galmini{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.galmini .gimg{border-radius:3px}

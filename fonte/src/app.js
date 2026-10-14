@@ -28,10 +28,10 @@ const grelhaDe = p => p.grelha ? GRELHAS[p.grelha] : specDe(p, 'grelha');
 const ehFogao = p => !!grelhaDe(p);
 const ONDE = { loja: ['Adicionar ao carrinho', 'no carrinho'], site: ['Adicionar à sacola', 'na sacola'], venda: ['Adicionar ao pedido', 'no pedido'] };
 const NAV = {
-  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['usuarios', 'Usuários']],
-  vendedor: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['lojas', 'Contas e-commerce']],
-  representante: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Meus pedidos']],
-  ecommerce: [['loja', 'Produtos'], ['carrinho', 'Carrinho'], ['pedidos', 'Meus pedidos']]
+  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['galeria', 'Galeria de fotos'], ['usuarios', 'Usuários']],
+  vendedor: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['lojas', 'Contas e-commerce'], ['galeria', 'Galeria de fotos']],
+  representante: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']],
+  ecommerce: [['loja', 'Produtos'], ['carrinho', 'Carrinho'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']]
 };
 const PIX = { sem: ['Sem comprovante', 'warn'], analise: ['Comprovante em análise', 'info'], verificado: ['PIX verificado', 'ok'], recusado: ['Comprovante recusado', 'bad'] };
 const ENVIO = { aguardando: ['Aguardando pagamento', ''], expedicao: ['Em expedição', 'info'], enviado: ['Enviado', 'ok'] };
@@ -76,14 +76,14 @@ function voltarSite() {
 }
 function entrarComo(u) {
   sessao = u.id;
-  ui.erro = ''; ui.view = NAV[u.papel][0][0]; ui.pedido = null; ui.carrinho = null; ui.checkout = null; ui.acesso = null; renderApp(); scrollTo(0, 0);
+  ui.erro = ''; ui.galBusca = ''; ui.galCat = ''; ui.view = NAV[u.papel][0][0]; ui.pedido = null; ui.carrinho = null; ui.checkout = null; ui.acesso = null; renderApp(); scrollTo(0, 0);
 }
 
 function renderApp() {
   const u = eu(), app = $('#app');
   if (!u) { app.innerHTML = vLogin(); $('.login-art').style.backgroundImage = `url(${IMG.cover})`; return; }
   const nav = NAV[u.papel] || NAV.vendedor; if (!nav.find(n => n[0] === ui.view)) ui.view = nav[0][0];
-  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios };
+  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria };
   const selo = id => { const n = id === 'carrinho' ? qtdCarrinho() : (id === 'pedidos' || id === 'financeiro') && u.papel === 'admin' ? state.pedidos.filter(p => id === 'financeiro' ? ehBoleto(p) && paraConferir(p) : paraConferir(p)).length : 0; return n ? `<span class="badge" aria-label="${n} ${id === 'carrinho' ? 'no carrinho' : id === 'financeiro' ? 'boletos para aprovar' : 'com pagamento para conferir'}">${n}</span>` : ''; };
   app.innerHTML = `<div class="shell">
     <aside class="side">

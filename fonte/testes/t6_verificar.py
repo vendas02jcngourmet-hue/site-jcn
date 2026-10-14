@@ -7,7 +7,7 @@ try:
     br = p.chromium.launch(); pg, errs = pagina(br); pg.goto(B + 'verificar.html'); pg.wait_for_timeout(2500)
     t = pg.inner_text('#lista'); ok('Falta: atualização 1' in t and 'Falta: confirmação de e-mail ligada' in t and 'Certo: dados reservados fechados' in t and 'Certo: catálogo no banco' in t, 'como está hoje: aponta a atualização que falta e o "Confirm email": ' + pg.inner_text('#resumo'))
     pg.screenshot(path=R + '/testes/shots/t6_antes.png', full_page=True)
-    s, e2 = pagina(br); s.goto(B); s.wait_for_timeout(2000); ok(s.locator('#rail button').count() == 11 and not [x for x in e2 if 'PAGEERR' in x], 'mesmo sem a atualização, o site abre (só as fotos do banco ainda não vêm)')
+    s, e2 = pagina(br); s.goto(B); s.wait_for_timeout(2000); ok(s.locator('#stripes .stripe').count() == 11 and not [x for x in e2 if 'PAGEERR' in x], 'mesmo sem a atualização, o site abre (só as fotos do banco ainda não vêm)')
     srv.terminate(); srv.wait(); srv = subir()
     pg.reload(); pg.wait_for_timeout(2500); t = pg.inner_text('#lista')
     ok(t.count('Certo:') == 7 and 'Falta' not in t and 'Atenção: site sem cadeado' in t, 'com tudo aplicado: 7 itens certos (o aviso de HTTPS é só do ambiente de teste): ' + pg.inner_text('#resumo'))

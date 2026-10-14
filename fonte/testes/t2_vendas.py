@@ -15,7 +15,7 @@ try:
     # ---------- 1. vendedora
     entrar(pg, 'ecommerce', 'marina@jcn.test', 'Marina#2026'); ok('Vendas internas' in pg.inner_text('.err'), 'vendedora na aba E-commerce é mandada para a aba certa: ' + pg.inner_text('.err'))
     entrar(pg, 'vendas', 'marina@jcn.test', 'Marina#2026')
-    ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Pedidos', 'Contas e-commerce'], 'menu da vendedora: ' + ' | '.join(nav(pg)))
+    ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Pedidos', 'Contas e-commerce', 'Galeria de fotos'], 'menu da vendedora: ' + ' | '.join(nav(pg)))
     pg.fill('#bv', 'FF011'); pg.press('#bv', 'Enter'); W(); c = pg.inner_text('.cards .card').replace('\n', ' | ')
     ok('R$' in c, 'vendedora vê a tabela de preços: ' + c[:110])
     pg.click('.cards .card .btn'); W(); pg.check('#fx-' + pid('FF996')); pg.check('#ff-' + pid('FF163TV')); W(); soma = pg.inner_text('.soma'); pg.click('[data-act=ficha-add]'); W()
@@ -40,7 +40,7 @@ try:
     ok('lojamarina' in pg.inner_text('.acesso') and banco("select count(*) from catalogo_loja c join perfis l on l.id = c.loja_id and l.login = 'lojamarina' join perfis v on v.id = l.vendedor_id and v.email = 'marina@jcn.test'") == '11', 'vendedora cria a loja dela com 11 produtos liberados')
     sair(pg)
     # ---------- 2. representante
-    entrar(pg, 'vendas', 'paulo@jcn.test', 'Paulo#2026'); ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Meus pedidos'], 'menu do representante: ' + ' | '.join(nav(pg)))
+    entrar(pg, 'vendas', 'paulo@jcn.test', 'Paulo#2026'); ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Meus pedidos', 'Galeria de fotos'], 'menu do representante: ' + ' | '.join(nav(pg)))
     ir(pg, 'pedidos'); ok(pg.locator('.tbl tbody tr').count() == 0, 'representante não vê os pedidos da vendedora')
     ir(pg, 'catalogo'); pg.fill('#bv', 'FG4FSD-VER'); pg.press('#bv', 'Enter'); W(); pg.click('.cards .card .btn'); W(); pg.click('[data-act=ficha-add]') if pg.locator('[data-act=ficha-add]').count() else None; W()
     ir(pg, 'novo-pedido'); pg.fill('[data-p="cliente.nome"]', 'Bar do Zé'); pg.click('[data-act=lancar-pedido]'); parado(pg, 700)

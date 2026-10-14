@@ -53,7 +53,7 @@ try:
     adm.click('.drawer .x')
     # ---------- servidor fora do ar
     off, e4 = pagina(br); off.route('**/rest/v1/**', lambda r: r.abort()); off.route('**/auth/v1/**', lambda r: r.abort()); off.goto(B); off.wait_for_timeout(2500)
-    ok(off.inner_text('#heroTitle') != '' and off.locator('#rail button').count() == 11 and off.locator('.toast:not([hidden])').count() == 1, 'sem o banco, a página inicial abre mesmo assim e avisa: ' + toast(off))
+    ok(off.inner_text('#heroTitle') != '' and off.locator('#stripes .stripe').count() == 11 and off.locator('.toast:not([hidden])').count() == 1, 'sem o banco, a página inicial abre mesmo assim e avisa: ' + toast(off))
     ok(off.locator('.vit-cards .card').count() == 0, 'e não mostra preço nenhum enquanto não fala com o banco')
     off.click('.site-head [data-act=abrir-login]'); off.wait_for_timeout(200); off.fill('#lgEmail', 'admin@jcn.test'); off.fill('#lgSenha', 'Admin#2026'); off.press('#lgSenha', 'Enter'); off.wait_for_timeout(800)
     ok('conexão' in off.inner_text('.err'), 'login sem conexão avisa: ' + off.inner_text('.err'))

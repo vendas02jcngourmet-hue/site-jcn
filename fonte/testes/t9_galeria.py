@@ -1,0 +1,42 @@
+# Galeria de fotos: por categoria e produto, download, foto nova aparece sozinha, loja vê só o que foi liberado
+import sys; sys.path.insert(0, '/home/claude/real/testes')
+from base import *
+srv = subir()
+pid = lambda cod: banco(f"select id from produtos where codigo = '{cod}'")
+def conta(nome, email, papel, senha):
+    banco(f"insert into auth.users (email, encrypted_password, email_confirmed_at) values ('{email}', crypt('{senha}', gen_salt('bf', 4)), now())")
+    banco(f"insert into perfis (id, nome, email, papel, empresa) select id, '{nome}', email, '{papel}', 'JCN Gourmet' from auth.users where email = '{email}'")
+conta('Marina', 'marina@jcn.test', 'vendedor', 'Marina#2026'); conta('Paulo', 'paulo@jcn.test', 'representante', 'Paulo#2026')
+try:
+  with sync_playwright() as p:
+    br = p.chromium.launch(); pg, errs = pagina(br, accept_downloads=True); W = lambda ms=300: pg.wait_for_timeout(ms)
+    pg.goto(B); W(1200); entrar(pg, 'vendas', 'marina@jcn.test', 'Marina#2026'); ir(pg, 'galeria')
+    cats = pg.locator('.galcat h2').all_inner_texts(); nf = pg.locator('.gimg').count()
+    ok('Linha Colors' in cats and 'Fotos do site' in cats and nf > 90, f'vendedora vê a galeria por categoria: {len(cats)} blocos, {nf} fotos')
+    ok(pg.locator('.galcat:has(h2:text-is("Linha Colors")) .galcard').count() == 11, 'Linha Colors: um quadro por fogão')
+    pg.screenshot(path=R + '/testes/shots/t9_galeria.png')
+    with pg.expect_download() as d: pg.click('.galcat:has(h2:text-is("Linha Colors")) .galcard .btn >> nth=0')
+    dl = d.value; ok(dl.suggested_filename.startswith('FG4FSD') and dl.suggested_filename.endswith('.webp'), 'baixar foto com nome do produto: ' + dl.suggested_filename)
+    pg.select_option('#galCat', 'industriais'); W(); ok(pg.locator('.galcat').count() == 1 and pg.inner_text('.galcat h2') == 'Fogões baixa pressão', 'filtro por categoria')
+    pg.select_option('#galCat', ''); W(); pg.fill('#galBusca', 'FF011'); W(700); t = pg.inner_text('.main'); ok(pg.locator('.galcard').count() == 1 and 'FF011' in t and 'FF996' in t, 'busca por código acha o fogão (as duas grelhas juntas)')
+    pg.fill('#galBusca', ''); W(600); pg.click('.gimg >> nth=0'); W(); ok(pg.locator('.viewer img').count() == 1, 'amplia a foto'); pg.click('[data-act=fechar-viewer]')
+    sair(pg)
+    # administração põe foto nova num produto: aparece na galeria
+    entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026'); ir(pg, 'produtos'); pg.fill('#bp', 'FF006'); pg.press('#bp', 'Enter'); W(); pg.click('[data-act=editar-produto]'); W()
+    pg.set_input_files('[data-file=foto-produto]', FX + 'comprovante.png'); W(900); pg.click('[data-act=salvar-produto]'); parado(pg, 1200)
+    # loja
+    ir(pg, 'lojas'); pg.click('[data-act=nova-conta]'); W(); pg.fill('#ctNome', 'Loja Teste'); pg.fill('#ctLogin', 'lojateste'); pg.fill('#ctSenha', 'LojaTeste#1'); pg.select_option('#ctVend', banco("select id from perfis where email='marina@jcn.test'"))
+    pg.check('#lb-' + pid('FG4FSD-AZU')); pg.check('#lb-' + pid('FF006')); W(); print('   marcados:', pg.locator('table.lib input[type=checkbox]:checked').count(), pg.is_checked('#lb-' + pid('FG4FSD-AZU'))); pg.click('[data-act=salvar-conta]'); parado(pg, 1200); sair(pg)
+    entrar(pg, 'vendas', 'paulo@jcn.test', 'Paulo#2026'); ir(pg, 'galeria'); pg.fill('#galBusca', 'FF006'); W(700)
+    ok(any('/storage/v1/object/public/' in (pg.get_attribute(f'.galcard img >> nth={i}', 'src') or '') for i in range(pg.locator('.galcard img').count())), 'a foto nova do FF006 já aparece na galeria do representante')
+    sair(pg); entrar(pg, 'ecommerce', 'lojateste', 'LojaTeste#1'); ir(pg, 'galeria')
+    t = pg.inner_text('.main'); ok(pg.locator('.galcard').count() == 2 and 'Zilda' in t and 'FF006' in t and 'Fotos do site' not in t and 'Carlos' not in t, 'a loja vê só os 2 produtos liberados para ela: ' + ' | '.join(pg.locator('.galcard b').all_inner_texts()))
+    ok(len(pg.locator('#galCat option').all_inner_texts()) == 3, 'e só as categorias deles no filtro')
+    pg.screenshot(path=R + '/testes/shots/t9_loja.png')
+    with pg.expect_download() as d: pg.click('.galcard .btn >> nth=0')
+    ok(d.value.suggested_filename != '', 'a loja também baixa: ' + d.value.suggested_filename)
+    m, e2 = pagina(br, 390, 800); m.goto(B); m.wait_for_timeout(1200); entrar(m, 'ecommerce', 'lojateste', 'LojaTeste#1'); ir(m, 'galeria'); m.screenshot(path=R + '/testes/shots/t9_celular.png')
+    ok(not m.evaluate("document.documentElement.scrollWidth>document.documentElement.clientWidth+1"), 'celular sem rolagem lateral')
+    ok(not errs and not e2, 'sem erros: ' + ' | '.join(errs + e2)[:300])
+finally: srv.terminate()
+print('FALHAS:', F if F else 'nenhuma')
