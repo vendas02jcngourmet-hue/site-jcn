@@ -75,6 +75,7 @@ async function carregarConteudo() {
   const [linhas, cfg, pixPublico] = await Promise.all([SB.sel('conteudo_site', 'select=chave,valor'), logado ? SB.sel('configuracoes', 'select=chave,valor') : [], logado ? null : SB.rpc('pix_da_loja_site').catch(() => null)]);
   const site = (linhas.find(l => l.chave === 'site') || {}).valor, c = { ...base, ...(site || {}) };
   const de = k => (cfg.find(x => x.chave === k) || {}).valor;
+  if (c.txtR === 'A mesma estrutura, outro clima. A Zilda chega com café recém-passado e pão de queijo. É o tipo de calor que não queima, acolhe.') c.txtR = base.txtR;   // a cozinha de casa agora mostra a Meire
   c.pix = { chave: '', favorecido: '', banco: '', ...((logado ? de('pix') : pixPublico) || {}) };
   c.loja = logado && de('loja_site') ? { ativa: !!de('loja_site').ativa, acrescimo: Number(de('loja_site').acrescimo) || 0 } : { ativa: state.catalogo.produtos.some(p => p.vit != null), acrescimo: null };
   state.conteudo = c; atualizarLinhas();

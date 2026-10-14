@@ -7,7 +7,7 @@ const CAT26 = [["ff006","industriais","Fogão Perfil 5, 2 bocas, queimadores sim
 const FORNOS_POR = {"p5p":["ff162","ff162ti","ff162tv"],"p7p":["ff164","ff164tv"],"p5g":["ff163","ff163ti","ff163tv","ff163tv-i"],"p7g":["ff165","ff165tv"]};
 const CATEGORIAS = [["colors","Linha Colors"],["industriais","Fogões baixa pressão"],["altapressao","Fogões alta pressão"],["camping","Fogões camping"],["fornos","Fornos cavalete"],["fornosavulsos","Fornos avulsos"],["tacho","Tachos fritadores"],["sanduicheiras","Sanduicheiras"],["chapeiras","Chapeiras"],["disco","Discos de arado"],["picadores","Picadores de legumes"],["engenho","Engenhos"],["mesas","Mesas de panificação"],["lanca","Lança-chamas e mangueiras"],["banquetas","Banquetas"],["cabideiros","Cabideiros"],["prateleiras","Prateleiras"],["portaopet","Portão pet"]];
 
-const IMG = {"bige": "img/bige.webp", "carlos": "img/carlos.webp", "carlos_hi": "img/carlos_hi.webp", "close_carlos": "img/close_carlos.webp", "close_helena": "img/close_helena.webp", "close_rosa": "img/close_rosa.webp", "cover": "img/cover.webp", "dirce": "img/dirce.webp", "helena": "img/helena.webp", "idalina": "img/idalina.webp", "l_alta": "img/l_alta.webp", "l_banqueta": "img/l_banqueta.webp", "l_chapa": "img/l_chapa.webp", "l_disco": "img/l_disco.webp", "l_engenho": "img/l_engenho.webp", "l_forno": "img/l_forno.webp", "l_forno2": "img/l_forno2.webp", "l_ind5": "img/l_ind5.webp", "l_ind7": "img/l_ind7.webp", "l_inox": "img/l_inox.webp", "l_lanca": "img/l_lanca.webp", "l_mangueira": "img/l_mangueira.webp", "l_mesa": "img/l_mesa.webp", "l_picador": "img/l_picador.webp", "l_sand": "img/l_sand.webp", "l_tacho": "img/l_tacho.webp", "lair": "img/lair.webp", "mateus": "img/mateus.webp", "meire": "img/meire.webp", "rosa": "img/rosa.webp", "zeze": "img/zeze.webp", "zilda": "img/zilda.webp", "zilda_hi": "img/zilda_hi.webp", "c_bqa-br": "img/c_bqa-br.webp", "c_bqa-pt": "img/c_bqa-pt.webp", "c_bqb-br": "img/c_bqb-br.webp", "c_bqb-pt": "img/c_bqb-pt.webp", "c_cab-br": "img/c_cab-br.webp", "c_cab-pt": "img/c_cab-pt.webp", "c_chp-1050cl": "img/c_chp-1050cl.webp", "c_chp-1250cl": "img/c_chp-1250cl.webp", "c_chp-4550cl": "img/c_chp-4550cl.webp", "c_chp-6550cl": "img/c_chp-6550cl.webp", "c_chp-8550cl": "img/c_chp-8550cl.webp", "c_cmp-azul": "img/c_cmp-azul.webp", "c_cmp-carbono": "img/c_cmp-carbono.webp", "c_cmp-inox": "img/c_cmp-inox.webp", "c_cmp-vermelho": "img/c_cmp-vermelho.webp", "c_dsc-fd001": "img/c_dsc-fd001.webp", "c_dsc-fd002": "img/c_dsc-fd002.webp", "c_dsc-fd003": "img/c_dsc-fd003.webp", "c_dsc-fd0040": "img/c_dsc-fd0040.webp", "c_eng-p30": "img/c_eng-p30.webp", "c_eng-p60": "img/c_eng-p60.webp", "c_ff009": "img/c_ff009.webp", "c_ff011": "img/c_ff011.webp", "c_ff014": "img/c_ff014.webp", "c_ff016": "img/c_ff016.webp", "c_ff017": "img/c_ff017.webp", "c_ff019": "img/c_ff019.webp", "c_ff022": "img/c_ff022.webp", "c_ff022tv": "img/c_ff022tv.webp", "c_ff100": "img/c_ff100.webp", "c_ff101": "img/c_ff101.webp", "c_ff103": "img/c_ff103.webp", "c_ff107": "img/c_ff107.webp", "c_ff109": "img/c_ff109.webp", "c_ff111": "img/c_ff111.webp", "c_ff114": "img/c_ff114.webp", "c_ff116": "img/c_ff116.webp", "c_ff143": "img/c_ff143.webp", "c_ff147": "img/c_ff147.webp", "c_fog2inox": "img/c_fog2inox.webp", "c_fog6inox": "img/c_fog6inox.webp", "c_frit40": "img/c_frit40.webp", "c_kitap": "img/c_kitap.webp", "c_lanca-1m": "img/c_lanca-1m.webp", "c_lanca-2m": "img/c_lanca-2m.webp", "c_mesa-com": "img/c_mesa-com.webp", "c_mesa-sem": "img/c_mesa-sem.webp", "c_pic-fp001": "img/c_pic-fp001.webp", "c_pic-fp002": "img/c_pic-fp002.webp", "c_pic-fp003": "img/c_pic-fp003.webp", "c_snd-4040snd": "img/c_snd-4040snd.webp", "c_snd-4040sndp": "img/c_snd-4040sndp.webp", "c_snd-4060snd": "img/c_snd-4060snd.webp", "c_snd-4060sndp": "img/c_snd-4060sndp.webp", "c_snd-4080snd": "img/c_snd-4080snd.webp", "c_snd-4080sndp": "img/c_snd-4080sndp.webp"};      // nome da imagem -> arquivo na pasta img/
+const IMG = {"bige": "img/bige.webp", "carlos": "img/carlos.webp", "carlos_hi": "img/carlos_hi.webp", "close_carlos": "img/close_carlos.webp", "close_helena": "img/close_helena.webp", "close_rosa": "img/close_rosa.webp", "cover": "img/cover.webp", "dirce": "img/dirce.webp", "helena": "img/helena.webp", "idalina": "img/idalina.webp", "l_alta": "img/l_alta.webp", "l_banqueta": "img/l_banqueta.webp", "l_chapa": "img/l_chapa.webp", "l_disco": "img/l_disco.webp", "l_engenho": "img/l_engenho.webp", "l_forno": "img/l_forno.webp", "l_forno2": "img/l_forno2.webp", "l_ind5": "img/l_ind5.webp", "l_ind7": "img/l_ind7.webp", "l_inox": "img/l_inox.webp", "l_lanca": "img/l_lanca.webp", "l_mangueira": "img/l_mangueira.webp", "l_mesa": "img/l_mesa.webp", "l_picador": "img/l_picador.webp", "l_sand": "img/l_sand.webp", "l_tacho": "img/l_tacho.webp", "lair": "img/lair.webp", "mateus": "img/mateus.webp", "meire": "img/meire.webp", "rosa": "img/rosa.webp", "zeze": "img/zeze.webp", "zilda": "img/zilda.webp", "zilda_hi": "img/zilda_hi.webp", "c_bqa-br": "img/c_bqa-br.webp", "c_bqa-pt": "img/c_bqa-pt.webp", "c_bqb-br": "img/c_bqb-br.webp", "c_bqb-pt": "img/c_bqb-pt.webp", "c_cab-br": "img/c_cab-br.webp", "c_cab-pt": "img/c_cab-pt.webp", "c_chp-1050cl": "img/c_chp-1050cl.webp", "c_chp-1250cl": "img/c_chp-1250cl.webp", "c_chp-4550cl": "img/c_chp-4550cl.webp", "c_chp-6550cl": "img/c_chp-6550cl.webp", "c_chp-8550cl": "img/c_chp-8550cl.webp", "c_cmp-azul": "img/c_cmp-azul.webp", "c_cmp-carbono": "img/c_cmp-carbono.webp", "c_cmp-inox": "img/c_cmp-inox.webp", "c_cmp-vermelho": "img/c_cmp-vermelho.webp", "c_dsc-fd001": "img/c_dsc-fd001.webp", "c_dsc-fd002": "img/c_dsc-fd002.webp", "c_dsc-fd003": "img/c_dsc-fd003.webp", "c_dsc-fd0040": "img/c_dsc-fd0040.webp", "c_eng-p30": "img/c_eng-p30.webp", "c_eng-p60": "img/c_eng-p60.webp", "c_ff009": "img/c_ff009.webp", "c_ff011": "img/c_ff011.webp", "c_ff014": "img/c_ff014.webp", "c_ff016": "img/c_ff016.webp", "c_ff017": "img/c_ff017.webp", "c_ff019": "img/c_ff019.webp", "c_ff022": "img/c_ff022.webp", "c_ff022tv": "img/c_ff022tv.webp", "c_ff100": "img/c_ff100.webp", "c_ff101": "img/c_ff101.webp", "c_ff103": "img/c_ff103.webp", "c_ff107": "img/c_ff107.webp", "c_ff109": "img/c_ff109.webp", "c_ff111": "img/c_ff111.webp", "c_ff114": "img/c_ff114.webp", "c_ff116": "img/c_ff116.webp", "c_ff143": "img/c_ff143.webp", "c_ff147": "img/c_ff147.webp", "c_fog2inox": "img/c_fog2inox.webp", "c_fog6inox": "img/c_fog6inox.webp", "c_frit40": "img/c_frit40.webp", "c_kitap": "img/c_kitap.webp", "c_lanca-1m": "img/c_lanca-1m.webp", "c_lanca-2m": "img/c_lanca-2m.webp", "c_mesa-com": "img/c_mesa-com.webp", "c_mesa-sem": "img/c_mesa-sem.webp", "c_pic-fp001": "img/c_pic-fp001.webp", "c_pic-fp002": "img/c_pic-fp002.webp", "c_pic-fp003": "img/c_pic-fp003.webp", "c_snd-4040snd": "img/c_snd-4040snd.webp", "c_snd-4040sndp": "img/c_snd-4040sndp.webp", "c_snd-4060snd": "img/c_snd-4060snd.webp", "c_snd-4060sndp": "img/c_snd-4060sndp.webp", "c_snd-4080snd": "img/c_snd-4080snd.webp", "c_snd-4080sndp": "img/c_snd-4080sndp.webp", "meire_hi": "img/meire_hi.webp"};      // nome da imagem -> arquivo na pasta img/
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -131,7 +131,7 @@ function defaults() {
       heroTitulo: 'Onze fogões com nome de gente.',
       heroTexto: 'A Linha Colors resgata a tradição e conecta gerações: aço carbono, grelhas de ferro fundido e forno de 100 litros, em onze cores com história.',
       txtG: 'Entre mármore, marcenaria e luz cênica, o Carlos entra de preto. Discreto, mas impossível de passar despercebido: transforma a cozinha em um palco de estilo e essência.',
-      txtR: 'A mesma estrutura, outro clima. A Zilda chega com café recém-passado e pão de queijo. É o tipo de calor que não queima, acolhe.',
+      txtR: 'A mesma estrutura, outro clima. A Meire chega com café recém-passado e pão de queijo. É o tipo de calor que não queima, acolhe.',
       galeria: ['img:close_carlos', 'img:close_rosa', 'img:close_helena', 'img:cover'],
       linhas: linhasPadrao(), versaoLinhas: 3,
       pix: { chave: '', favorecido: '', banco: '' }
@@ -306,7 +306,8 @@ function montarPalco() {
   $('#onStove').innerHTML = cenaSobreFogao();
   $('#stZ').setAttribute('href', IMG.zilda_hi);
   $('#stC').setAttribute('href', IMG.carlos_hi);
-  $$('#slices image').forEach(i => i.setAttribute('href', IMG.zilda_hi));
+  $('#stM').setAttribute('href', IMG.meire_hi);
+  $$('#slices image').forEach(i => i.setAttribute('href', IMG.meire_hi));       // vista explodida: Meire
   $('#cu1').src = IMG.close_rosa; $('#cu2').src = IMG.close_helena; $('#cu3').src = IMG.close_carlos;
   // chamas: duas bocas visíveis de frente
   const chama = (x) => `<path class="flame" d="M${x} 522 c-5 -7 -4 -16 0 -24 c4 8 5 17 0 24Z" fill="#3F7FE0"/><path class="flame" d="M${x} 522 c-2 -4 -2 -8 0 -12 c2 4 2 8 0 12Z" fill="#CFE6FF"/>`;
@@ -326,7 +327,7 @@ function montarPalco() {
 const pal = {};
 function prepararScroll() {
   pal.stage = $('.stage'); pal.pin = $('#pin'); pal.stripes = $$('.stripe'); pal.g = $('#sceneG'); pal.r = $('#sceneR'); pal.on = $('#onStove');
-  pal.stove = $('#stove'); pal.stZ = $('#stZ'); pal.stC = $('#stC'); pal.slices = $('#slices'); pal.sl = $$('#slices .slice'); pal.flames = $('#flames');
+  pal.stove = $('#stove'); pal.stZ = $('#stZ'); pal.stC = $('#stC'); pal.stM = $('#stM'); pal.slices = $('#slices'); pal.sl = $$('#slices .slice'); pal.flames = $('#flames');
   pal.dims = $('#dims'); pal.dimH = $('#dimH'); pal.labels = $('#labels'); pal.lb = $$('#labels g'); pal.det = $$('#details li');
   pal.pG = $('#plateG'); pal.pR = $('#plateR'); pal.pX = $('#plateX');
   pal.lines = $('#linhas'); pal.belt = $('#belt'); pal.ticks = $('#lticks');
@@ -364,7 +365,8 @@ function quadro() {
   const dG = seg(p, .15, .34), oG = p < .13 ? 0 : 1 - seg(p, .41, .46);
   pal.g.style.setProperty('--draw', dG.toFixed(3)); pal.g.style.setProperty('--op', oG.toFixed(3)); pal.g.style.display = oG ? '' : 'none';
   par(pal.g, seg(p, .15, .46) - .5, 1);
-  const c = ease(seg(p, .14, .2)) * (1 - ease(seg(p, .47, .53)));
+  // ordem: Zilda (azul) na abertura, Carlos (preto) na cozinha gourmet, Meire (branco) na cozinha de casa e na vista explodida
+  const m = ease(seg(p, .47, .53)), c = ease(seg(p, .14, .2)) * (m >= .999 ? 0 : 1);
   pal.stC.setAttribute('opacity', c.toFixed(3));
   // cozinha residencial
   const dR = seg(p, .48, .66), oR = p < .46 ? 0 : 1 - seg(p, .71, .76);
@@ -377,7 +379,8 @@ function quadro() {
   pal.dimH.setAttribute('opacity', (1 - seg(p, .8, .83)).toFixed(3));
   const aberto = e > .001;
   pal.slices.setAttribute('visibility', aberto ? 'visible' : 'hidden');
-  pal.stZ.setAttribute('visibility', aberto || c >= .999 ? 'hidden' : 'visible');
+  pal.stZ.setAttribute('visibility', aberto || c >= .999 || m >= .999 ? 'hidden' : 'visible');
+  pal.stM.setAttribute('opacity', m.toFixed(3)); pal.stM.setAttribute('visibility', aberto || m < .001 ? 'hidden' : 'visible');
   const ativo = p > .815 ? Math.min(5, Math.floor(seg(p, .815, .995) * 6)) : -1;
   const fatiaDe = [0, -1, 1, 2, 3, 4][ativo] ?? -2;   // "Bocas" (1) não é uma fatia: são as chamas
   pal.sl.forEach((g, i) => {
@@ -1842,6 +1845,7 @@ async function carregarConteudo() {
   const [linhas, cfg, pixPublico] = await Promise.all([SB.sel('conteudo_site', 'select=chave,valor'), logado ? SB.sel('configuracoes', 'select=chave,valor') : [], logado ? null : SB.rpc('pix_da_loja_site').catch(() => null)]);
   const site = (linhas.find(l => l.chave === 'site') || {}).valor, c = { ...base, ...(site || {}) };
   const de = k => (cfg.find(x => x.chave === k) || {}).valor;
+  if (c.txtR === 'A mesma estrutura, outro clima. A Zilda chega com café recém-passado e pão de queijo. É o tipo de calor que não queima, acolhe.') c.txtR = base.txtR;   // a cozinha de casa agora mostra a Meire
   c.pix = { chave: '', favorecido: '', banco: '', ...((logado ? de('pix') : pixPublico) || {}) };
   c.loja = logado && de('loja_site') ? { ativa: !!de('loja_site').ativa, acrescimo: Number(de('loja_site').acrescimo) || 0 } : { ativa: state.catalogo.produtos.some(p => p.vit != null), acrescimo: null };
   state.conteudo = c; atualizarLinhas();

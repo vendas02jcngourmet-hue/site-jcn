@@ -123,7 +123,7 @@ function defaults() {
       heroTitulo: 'Onze fogões com nome de gente.',
       heroTexto: 'A Linha Colors resgata a tradição e conecta gerações: aço carbono, grelhas de ferro fundido e forno de 100 litros, em onze cores com história.',
       txtG: 'Entre mármore, marcenaria e luz cênica, o Carlos entra de preto. Discreto, mas impossível de passar despercebido: transforma a cozinha em um palco de estilo e essência.',
-      txtR: 'A mesma estrutura, outro clima. A Zilda chega com café recém-passado e pão de queijo. É o tipo de calor que não queima, acolhe.',
+      txtR: 'A mesma estrutura, outro clima. A Meire chega com café recém-passado e pão de queijo. É o tipo de calor que não queima, acolhe.',
       galeria: ['img:close_carlos', 'img:close_rosa', 'img:close_helena', 'img:cover'],
       linhas: linhasPadrao(), versaoLinhas: 3,
       pix: { chave: '', favorecido: '', banco: '' }
@@ -298,7 +298,8 @@ function montarPalco() {
   $('#onStove').innerHTML = cenaSobreFogao();
   $('#stZ').setAttribute('href', IMG.zilda_hi);
   $('#stC').setAttribute('href', IMG.carlos_hi);
-  $$('#slices image').forEach(i => i.setAttribute('href', IMG.zilda_hi));
+  $('#stM').setAttribute('href', IMG.meire_hi);
+  $$('#slices image').forEach(i => i.setAttribute('href', IMG.meire_hi));       // vista explodida: Meire
   $('#cu1').src = IMG.close_rosa; $('#cu2').src = IMG.close_helena; $('#cu3').src = IMG.close_carlos;
   // chamas: duas bocas visíveis de frente
   const chama = (x) => `<path class="flame" d="M${x} 522 c-5 -7 -4 -16 0 -24 c4 8 5 17 0 24Z" fill="#3F7FE0"/><path class="flame" d="M${x} 522 c-2 -4 -2 -8 0 -12 c2 4 2 8 0 12Z" fill="#CFE6FF"/>`;
@@ -318,7 +319,7 @@ function montarPalco() {
 const pal = {};
 function prepararScroll() {
   pal.stage = $('.stage'); pal.pin = $('#pin'); pal.stripes = $$('.stripe'); pal.g = $('#sceneG'); pal.r = $('#sceneR'); pal.on = $('#onStove');
-  pal.stove = $('#stove'); pal.stZ = $('#stZ'); pal.stC = $('#stC'); pal.slices = $('#slices'); pal.sl = $$('#slices .slice'); pal.flames = $('#flames');
+  pal.stove = $('#stove'); pal.stZ = $('#stZ'); pal.stC = $('#stC'); pal.stM = $('#stM'); pal.slices = $('#slices'); pal.sl = $$('#slices .slice'); pal.flames = $('#flames');
   pal.dims = $('#dims'); pal.dimH = $('#dimH'); pal.labels = $('#labels'); pal.lb = $$('#labels g'); pal.det = $$('#details li');
   pal.pG = $('#plateG'); pal.pR = $('#plateR'); pal.pX = $('#plateX');
   pal.lines = $('#linhas'); pal.belt = $('#belt'); pal.ticks = $('#lticks');
@@ -356,7 +357,8 @@ function quadro() {
   const dG = seg(p, .15, .34), oG = p < .13 ? 0 : 1 - seg(p, .41, .46);
   pal.g.style.setProperty('--draw', dG.toFixed(3)); pal.g.style.setProperty('--op', oG.toFixed(3)); pal.g.style.display = oG ? '' : 'none';
   par(pal.g, seg(p, .15, .46) - .5, 1);
-  const c = ease(seg(p, .14, .2)) * (1 - ease(seg(p, .47, .53)));
+  // ordem: Zilda (azul) na abertura, Carlos (preto) na cozinha gourmet, Meire (branco) na cozinha de casa e na vista explodida
+  const m = ease(seg(p, .47, .53)), c = ease(seg(p, .14, .2)) * (m >= .999 ? 0 : 1);
   pal.stC.setAttribute('opacity', c.toFixed(3));
   // cozinha residencial
   const dR = seg(p, .48, .66), oR = p < .46 ? 0 : 1 - seg(p, .71, .76);
@@ -369,7 +371,8 @@ function quadro() {
   pal.dimH.setAttribute('opacity', (1 - seg(p, .8, .83)).toFixed(3));
   const aberto = e > .001;
   pal.slices.setAttribute('visibility', aberto ? 'visible' : 'hidden');
-  pal.stZ.setAttribute('visibility', aberto || c >= .999 ? 'hidden' : 'visible');
+  pal.stZ.setAttribute('visibility', aberto || c >= .999 || m >= .999 ? 'hidden' : 'visible');
+  pal.stM.setAttribute('opacity', m.toFixed(3)); pal.stM.setAttribute('visibility', aberto || m < .001 ? 'hidden' : 'visible');
   const ativo = p > .815 ? Math.min(5, Math.floor(seg(p, .815, .995) * 6)) : -1;
   const fatiaDe = [0, -1, 1, 2, 3, 4][ativo] ?? -2;   // "Bocas" (1) não é uma fatia: são as chamas
   pal.sl.forEach((g, i) => {
