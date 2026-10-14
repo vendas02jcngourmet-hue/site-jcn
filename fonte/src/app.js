@@ -107,7 +107,7 @@ function vLogin() {
   return `<div class="login">
     <div class="login-art">
       <span class="logo on-dark"><b>JCN</b><i>GOURMET</i></span>
-      <div><h1>Colors</h1><p>Área restrita da JCN Gourmet: vendas internas e lojas de e-commerce, cada uma com o seu acesso.</p></div>
+      <div><h1>Colors</h1><p>Área de login da JCN Gourmet: vendas internas e lojas de e-commerce, cada uma com o seu acesso.</p></div>
     </div>
     <div class="login-form">
       <button class="btn ghost sm" style="align-self:flex-start" data-act="voltar-site">Voltar ao site</button>

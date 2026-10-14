@@ -68,7 +68,7 @@
         else if (!eu.ativo) dizer('erro', 'A conta existe, mas está desativada.');
         else if (eu.papel !== 'admin') dizer('aviso', 'Login certo. Esta conta é de ' + eu.papel + ', não de administrador.');
         else return Promise.all([contar('precos', t), contar('configuracoes', t)]).then(function (n) {
-          dizer('ok', 'Conta de administrador pronta: ' + eu.nome + '. Tabela de preços lida com ' + n[0] + ' valores. Pode entrar pelo botão "Área restrita" do site.');
+          dizer('ok', 'Conta de administrador pronta: ' + eu.nome + '. Tabela de preços lida com ' + n[0] + ' valores. Pode entrar pelo botão "Área de Login" do site.');
         });
       }).then(function () { return chamar('/auth/v1/logout?scope=local', { method: 'POST', token: t }); });
     }).catch(function () { out.innerHTML = ''; dizer('erro', 'Sem resposta do servidor. Confira a internet.'); });
