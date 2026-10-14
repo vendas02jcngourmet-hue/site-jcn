@@ -172,7 +172,7 @@ function dProduto(d) {
     <div class="marcas">${fs.map(f => `<label class="check"><input type="checkbox" data-act="forno-serve" data-id="${esc(f.id)}" ${(d.fornos || []).includes(f.id) ? 'checked' : ''}>${esc(nomeForno(f))} <span class="note">${esc(f.codigo)} · ${precoTxt(f.preco)}</span></label>`).join('')}</div></details>` : ''; })()}
   <div class="panel"><h2>Fotos</h2><div class="photos">
     ${d.fotos.map((r, i) => `<div class="ph"><img src="${src(r)}" alt=""><button data-act="foto-rem" data-i="${i}" aria-label="Remover foto">×</button></div>`).join('')}
-    <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar foto<input type="file" accept="image/*" hidden data-file="foto-produto"></label></div>
+    <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="foto-produto"></label></div>
     <p class="note" style="margin:8px 0 0">A primeira foto é a principal. As imagens são reduzidas antes de salvar.</p></div>
   <label class="check"><input type="checkbox" data-f="ativo" ${d.ativo ? 'checked' : ''}>Ativo no site e nas tabelas de preço</label>
   <div class="foot"><button class="btn" data-act="salvar-produto">Salvar produto</button><button class="btn ghost" data-act="fechar">Cancelar</button>
@@ -198,7 +198,7 @@ function vConteudo() {
   <div class="panel"><h2>Legendas das cozinhas</h2><div class="rows">${campo('txtG', 'Cozinha gourmet', 1)}${campo('txtR', 'Cozinha residencial', 1)}</div></div>
   <div class="panel"><h2>Galeria</h2><div class="photos">
     ${c.galeria.map((r, i) => `<div class="ph"><img src="${src(r)}" alt=""><button data-act="gal-rem" data-i="${i}" aria-label="Remover foto">×</button></div>`).join('')}
-    <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar foto<input type="file" accept="image/*" hidden data-file="foto-galeria"></label></div></div>
+    <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="foto-galeria"></label></div></div>
   <div class="panel"><h2>Loja do site (consumidor final)</h2>
     <p class="note" style="margin:0 0 10px">Fica no fim da página inicial, depois das outras linhas. Mostra os produtos ativos que têm preço, pelo valor da tabela JCN mais o acréscimo abaixo. Os pedidos chegam em Pedidos, com a origem "Loja do site".</p>
     <div class="grid2"><label class="field"><span>Acréscimo sobre a tabela (%)</span><input id="ljAcr" type="number" min="0" max="500" step="0.5" inputmode="decimal" data-chg="loja-site" data-k="acrescimo" value="${esc(c.loja.acrescimo)}"></label>
@@ -229,7 +229,7 @@ function dLinha(d) {
     ${d.fatos.map((f, i) => `<div class="row-line" style="grid-template-columns:1fr 1.6fr"><input class="inp" aria-label="Rótulo ${i + 1}" placeholder="Rótulo" data-f="fatos.${i}.0" value="${esc(f[0])}"><input class="inp" aria-label="Valor ${i + 1}" placeholder="Valor" data-f="fatos.${i}.1" value="${esc(f[1])}"></div>`).join('')}</div></div>
   <div class="panel"><h2>Fotos (até duas)</h2><div class="photos">
     ${d.fotos.map((r, i) => `<div class="ph" style="background:#fff"><img src="${src(r)}" alt=""><button data-act="lfoto-rem" data-i="${i}" aria-label="Remover foto">×</button></div>`).join('')}
-    ${d.fotos.length < 2 ? `<label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar foto<input type="file" accept="image/*" hidden data-file="foto-linha"></label>` : ''}</div></div>
+    ${d.fotos.length < 2 ? `<label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="foto-linha"></label>` : ''}</div></div>
   <label class="check"><input type="checkbox" data-f="bancada" ${d.bancada ? 'checked' : ''}>Produto de bancada (aparece sobre uma mesa desenhada)</label>
   <label class="check" style="margin-top:8px"><input type="checkbox" data-f="ativo" ${d.ativo ? 'checked' : ''}>Ativa na página inicial</label>
   <div class="foot"><button class="btn" data-act="salvar-linha">Salvar linha</button><button class="btn ghost" data-act="fechar">Cancelar</button>

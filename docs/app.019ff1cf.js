@@ -711,7 +711,7 @@ function dProduto(d) {
     <div class="marcas">${fs.map(f => `<label class="check"><input type="checkbox" data-act="forno-serve" data-id="${esc(f.id)}" ${(d.fornos || []).includes(f.id) ? 'checked' : ''}>${esc(nomeForno(f))} <span class="note">${esc(f.codigo)} · ${precoTxt(f.preco)}</span></label>`).join('')}</div></details>` : ''; })()}
   <div class="panel"><h2>Fotos</h2><div class="photos">
     ${d.fotos.map((r, i) => `<div class="ph"><img src="${src(r)}" alt=""><button data-act="foto-rem" data-i="${i}" aria-label="Remover foto">×</button></div>`).join('')}
-    <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar foto<input type="file" accept="image/*" hidden data-file="foto-produto"></label></div>
+    <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="foto-produto"></label></div>
     <p class="note" style="margin:8px 0 0">A primeira foto é a principal. As imagens são reduzidas antes de salvar.</p></div>
   <label class="check"><input type="checkbox" data-f="ativo" ${d.ativo ? 'checked' : ''}>Ativo no site e nas tabelas de preço</label>
   <div class="foot"><button class="btn" data-act="salvar-produto">Salvar produto</button><button class="btn ghost" data-act="fechar">Cancelar</button>
@@ -737,7 +737,7 @@ function vConteudo() {
   <div class="panel"><h2>Legendas das cozinhas</h2><div class="rows">${campo('txtG', 'Cozinha gourmet', 1)}${campo('txtR', 'Cozinha residencial', 1)}</div></div>
   <div class="panel"><h2>Galeria</h2><div class="photos">
     ${c.galeria.map((r, i) => `<div class="ph"><img src="${src(r)}" alt=""><button data-act="gal-rem" data-i="${i}" aria-label="Remover foto">×</button></div>`).join('')}
-    <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar foto<input type="file" accept="image/*" hidden data-file="foto-galeria"></label></div></div>
+    <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="foto-galeria"></label></div></div>
   <div class="panel"><h2>Loja do site (consumidor final)</h2>
     <p class="note" style="margin:0 0 10px">Fica no fim da página inicial, depois das outras linhas. Mostra os produtos ativos que têm preço, pelo valor da tabela JCN mais o acréscimo abaixo. Os pedidos chegam em Pedidos, com a origem "Loja do site".</p>
     <div class="grid2"><label class="field"><span>Acréscimo sobre a tabela (%)</span><input id="ljAcr" type="number" min="0" max="500" step="0.5" inputmode="decimal" data-chg="loja-site" data-k="acrescimo" value="${esc(c.loja.acrescimo)}"></label>
@@ -768,7 +768,7 @@ function dLinha(d) {
     ${d.fatos.map((f, i) => `<div class="row-line" style="grid-template-columns:1fr 1.6fr"><input class="inp" aria-label="Rótulo ${i + 1}" placeholder="Rótulo" data-f="fatos.${i}.0" value="${esc(f[0])}"><input class="inp" aria-label="Valor ${i + 1}" placeholder="Valor" data-f="fatos.${i}.1" value="${esc(f[1])}"></div>`).join('')}</div></div>
   <div class="panel"><h2>Fotos (até duas)</h2><div class="photos">
     ${d.fotos.map((r, i) => `<div class="ph" style="background:#fff"><img src="${src(r)}" alt=""><button data-act="lfoto-rem" data-i="${i}" aria-label="Remover foto">×</button></div>`).join('')}
-    ${d.fotos.length < 2 ? `<label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar foto<input type="file" accept="image/*" hidden data-file="foto-linha"></label>` : ''}</div></div>
+    ${d.fotos.length < 2 ? `<label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="foto-linha"></label>` : ''}</div></div>
   <label class="check"><input type="checkbox" data-f="bancada" ${d.bancada ? 'checked' : ''}>Produto de bancada (aparece sobre uma mesa desenhada)</label>
   <label class="check" style="margin-top:8px"><input type="checkbox" data-f="ativo" ${d.ativo ? 'checked' : ''}>Ativa na página inicial</label>
   <div class="foot"><button class="btn" data-act="salvar-linha">Salvar linha</button><button class="btn ghost" data-act="fechar">Cancelar</button>
@@ -1756,7 +1756,7 @@ const extDe = t => ({ 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'j
 const nomeArquivo = (base, i, n) => nomeSeguro(base).replace(/\.[a-z0-9]+$/i, '') + (n > 1 ? '-' + (i + 1) : '');
 function produtosDaGaleria(u) {
   const lista = u.papel === 'ecommerce' ? liberadosDe(u).map(x => x.p) : vendaveis();
-  return lista.filter(p => p.fotos && p.fotos.length);
+  return u.papel === 'admin' ? lista : lista.filter(p => p.fotos && p.fotos.length);     // a administração vê também os produtos ainda sem foto, para colocar
 }
 function blocosDaGaleria(u) {
   const q = (ui.galBusca || '').trim().toLowerCase(), cf = ui.galCat || '';
@@ -1783,10 +1783,11 @@ function vGaleria(u) {
   ${!blocos.length && !site.length ? `<div class="panel"><p class="note" style="margin:0">${loja && !produtosDaGaleria(u).length ? 'Ainda não há produtos com foto liberados para a sua loja.' : 'Nenhuma foto encontrada.'}</p></div>` : ''}
   ${blocos.map(b => `<section class="galcat"><h2>${esc(b.c.nome)}</h2><div class="galcards">
     ${b.grupos.map(g => `<article class="card galcard">
-      <button class="gimg" data-act="gal-ver" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, g.fotos.length))}" aria-label="Ampliar ${esc(g.titulo)}"><img loading="lazy" src="${src(g.fotos[0])}" alt="${esc(g.titulo)}"></button>
+      ${g.fotos.length ? `<button class="gimg" data-act="gal-ver" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, g.fotos.length))}" aria-label="Ampliar ${esc(g.titulo)}"><img loading="lazy" src="${src(g.fotos[0])}" alt="${esc(g.titulo)}"></button>` : '<div class="gimg gvazio">Sem foto ainda</div>'}
       ${g.fotos.length > 1 ? `<div class="galmini">${g.fotos.slice(1).map((r, i) => `<button class="gimg" data-act="gal-ver" data-ref="${esc(r)}" data-nome="${esc(nomeArquivo(g.base, i + 1, g.fotos.length))}" aria-label="Ampliar outra foto de ${esc(g.titulo)}"><img loading="lazy" src="${src(r)}" alt=""></button>`).join('')}</div>` : ''}
       <div><b>${esc(g.titulo)}</b>${g.cods.length ? `<div class="note">${esc(g.cods.join(' · '))}</div>` : ''}</div>
-      ${g.fotos.length > 1 ? `<button class="btn sm" data-act="gal-baixar-todas" data-id="${esc(g.id)}">Baixar as ${g.fotos.length} fotos</button>`
+      ${u.papel === 'admin' ? `<label tabindex="0" class="btn ghost sm">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="gal-foto" data-id="${esc(g.id)}"></label>` : ''}
+      ${!g.fotos.length ? '' : g.fotos.length > 1 ? `<button class="btn sm" data-act="gal-baixar-todas" data-id="${esc(g.id)}">Baixar as ${g.fotos.length} fotos</button>`
         : `<button class="btn ghost sm" data-act="gal-baixar" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, 1))}">Baixar foto</button>`}
     </article>`).join('')}</div></section>`).join('')}
   ${site.length ? `<section class="galcat"><h2>Fotos do site</h2><div class="panel galprod"><div class="galtop"><div><b>Ambientes e outras linhas</b></div>
@@ -1813,6 +1814,18 @@ Object.assign(acts, {
   'gal-baixar': async e => { try { await baixarFoto(e.dataset.ref, e.dataset.nome); } catch (x) { toast('Não foi possível baixar a foto. Tente de novo.'); } },
   'gal-baixar-todas': e => { const u = eu(); if (!u) return; const g = blocosDaGaleria(u).flatMap(b => b.grupos).find(x => x.id === e.dataset.id); if (g) baixarVarias(g.fotos.map((r, i) => [r, nomeArquivo(g.base, i, g.fotos.length)])); },
   'gal-baixar-site': () => { const s = [...new Set([...(state.conteudo.galeria || []), ...(state.conteudo.linhas || []).filter(l => l.ativo).flatMap(l => l.fotos || [])])]; baixarVarias(s.map((r, i) => [r, 'jcn-gourmet-' + (i + 1)])); }
+});
+Object.assign(uploads, {
+  // administração: foto nova direto na galeria vai para o cadastro do produto (e aparece no site e para as lojas)
+  'gal-foto': async (f, t) => {
+    if (eu().papel !== 'admin') return;
+    const p = prod(t.dataset.id); if (!p) return;
+    const m = await Files.put(f, { imagem: true });
+    await quandoLivre();
+    const caminho = await Files.publicar(m.id, 'produtos/' + p.id);                 // sobe uma vez só
+    const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];   // fogão de duas grelhas: a foto vale para os dois códigos
+    grupo.forEach(x => x.fotos.push('pub:' + caminho)); salvar('catalogo'); renderApp(); toast('Foto adicionada a ' + p.nome + '.');
+  }
 });
 Object.assign(chgs, { 'gal-cat': e => { ui.galCat = e.value; renderApp(); } });
 let tGal = null;

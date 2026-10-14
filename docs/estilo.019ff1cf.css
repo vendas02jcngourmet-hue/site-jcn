@@ -511,3 +511,4 @@ table.tbl.lib tr.grp .btn{min-height:26px;padding:2px 8px;font-size:.8rem;vertic
 .galcard b{font-size:.98rem;line-height:1.25}
 .galmini{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .galmini .gimg{border-radius:3px}
+.gvazio{display:grid;place-items:center;color:var(--muted,#6b6b6b);font-size:.9rem;cursor:default}
