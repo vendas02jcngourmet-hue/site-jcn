@@ -40,7 +40,7 @@ async function selTudo(tabela, consulta) {
   for (let i = 0; ; i += 1000) { const l = await SB.sel(tabela, `${consulta}&limit=1000&offset=${i}`); tudo.push(...l); if (l.length < 1000) return tudo; }
 }
 function inicial() {
-  const d = defaults(); d.usuarios = []; d.pedidos = []; d.daqui = []; d.arquivos = {};
+  const d = defaults(); d.usuarios = []; d.pedidos = []; d.daqui = []; d.arquivos = {}; d.crm = { prospects: [], ligacoes: [] };
   d.conteudo.pix = { chave: '', favorecido: '', banco: '' }; d.conteudo.loja = { ativa: false, acrescimo: 20 };
   return d;
 }
@@ -112,6 +112,18 @@ async function carregarPedidos() {
   state.pedidos = peds.map(r => pedidoDe(r, it[r.id] || [], an[r.id] || [], pa[r.id] || []));
   espelho.pedidos = clone(state.pedidos); espelho.arquivos = clone(state.arquivos);
   await carregarPedidosDoSite();
+  await carregarCRM();
+}
+// registro de ligações e possíveis clientes (administração e vendedores)
+async function carregarCRM() {
+  if (!['admin', 'vendedor'].includes(papelAtual())) { state.crm = { prospects: [], ligacoes: [] }; return; }
+  try {
+    const [pr, lg, eq] = await Promise.all([selTudo('prospects', 'select=*&order=atualizado_em.desc,id.asc'), selTudo('ligacoes', 'select=*&order=feita_em.desc,id.asc'), SB.rpc('nomes_da_equipe').catch(() => [])]);
+    state.crm = { prospects: pr, ligacoes: lg, equipe: eq || [] };
+  } catch (e) {
+    if (e.rede) throw e;
+    state.crm = { prospects: [], ligacoes: [], indisponivel: /PGRST205|42P01|does not exist|schema cache/i.test((e.code || '') + ' ' + e.message) };
+  }
 }
 // Loja do site: os pedidos feitos neste aparelho ficam anotados aqui (state.daqui); o andamento vem do servidor.
 function lerPedidosDoSite() { try { return JSON.parse(localStorage.getItem(LS_SITE)) || []; } catch (e) { return []; } }
@@ -385,6 +397,10 @@ const NUCLEO = {
     await carregarContas();
     return antigo.id;
   },
+  async registrarLigacao(d) { const r = await SB.rpc('registrar_ligacao', { p: d }); await carregarCRM(); return r; },
+  async salvarProspect(id, campos) { const r = await SB.upd('prospects', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar este cadastro.'); await carregarCRM(); },
+  async apagarLigacao(id) { await SB.del('ligacoes', { id }); await carregarCRM(); },
+  async apagarProspect(id) { await SB.del('prospects', { id }); await carregarCRM(); },
   async definirSenha(id, senha) { await SB.rpc('definir_senha', { p_usuario: id, p_senha: senha }); }
 };
 
@@ -402,13 +418,13 @@ function ligarRelogio() {
     const a = document.activeElement;
     if (a && a.matches && a.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select')) return;      // não mexe na tela de quem está digitando
     naFila(async () => {
-      const antes = JSON.stringify([state.pedidos, state.usuarios, state.daqui]), dentro = !!sessao;
+      const antes = JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm]), dentro = !!sessao;
       try { if (dentro) await carregarContas(); await carregarPedidos(); } catch (e) { return; }
       if (dentro && sessao && !eu()) {            // a conta foi desativada enquanto a pessoa estava dentro
         try { await NUCLEO.sair(); } catch (e) { sessao = null; }
         ui.erro = 'Esta conta foi desativada. Fale com a administração da JCN.'; fecharDrawer(); if (!$('#app').hidden) renderApp(); return;
       }
-      if (antes !== JSON.stringify([state.pedidos, state.usuarios, state.daqui])) redesenhar();
+      if (antes !== JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm])) redesenhar();
     });
   }, (CONFIG.segundos_entre_atualizacoes || 30) * 1000);
 }

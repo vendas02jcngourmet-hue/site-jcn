@@ -28,8 +28,8 @@ const grelhaDe = p => p.grelha ? GRELHAS[p.grelha] : specDe(p, 'grelha');
 const ehFogao = p => !!grelhaDe(p);
 const ONDE = { loja: ['Adicionar ao carrinho', 'no carrinho'], site: ['Adicionar à sacola', 'na sacola'], venda: ['Adicionar ao pedido', 'no pedido'] };
 const NAV = {
-  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['galeria', 'Galeria de fotos'], ['usuarios', 'Usuários']],
-  vendedor: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['lojas', 'Contas e-commerce'], ['galeria', 'Galeria de fotos']],
+  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['usuarios', 'Usuários']],
+  vendedor: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['lojas', 'Contas e-commerce'], ['galeria', 'Galeria de fotos']],
   representante: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']],
   ecommerce: [['loja', 'Produtos'], ['carrinho', 'Carrinho'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']]
 };
@@ -83,7 +83,7 @@ function renderApp() {
   const u = eu(), app = $('#app');
   if (!u) { app.innerHTML = vLogin(); $('.login-art').style.backgroundImage = `url(${IMG.cover})`; return; }
   const nav = NAV[u.papel] || NAV.vendedor; if (!nav.find(n => n[0] === ui.view)) ui.view = nav[0][0];
-  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria };
+  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
   const selo = id => { const n = id === 'carrinho' ? qtdCarrinho() : (id === 'pedidos' || id === 'financeiro') && u.papel === 'admin' ? state.pedidos.filter(p => id === 'financeiro' ? ehBoleto(p) && paraConferir(p) : paraConferir(p)).length : 0; return n ? `<span class="badge" aria-label="${n} ${id === 'carrinho' ? 'no carrinho' : id === 'financeiro' ? 'boletos para aprovar' : 'com pagamento para conferir'}">${n}</span>` : ''; };
   app.innerHTML = `<div class="shell">
     <aside class="side">
@@ -438,6 +438,7 @@ function renderDrawer() {
     <div class="foot"><button class="btn" data-act="salvar-minha-senha">Trocar senha</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
   if (dr.tipo === 'pedido-site') { const p = (state.daqui || []).find(x => x.id === dr.id); if (!p) return fecharDrawer(); html = dPedidoSite(p, dr); }
   if (dr.tipo === 'meus-site') html = dMeusSite(dr);
+  if (dr.tipo === 'prospect') { html = u ? dProspect(dr, u) : ''; if (!html) return fecharDrawer(); }
   const sc = $('.drawer') ? $('.drawer').scrollTop : 0;
   o.innerHTML = `<div class="drawer-bg" data-act="fundo"><div class="drawer" role="dialog" aria-modal="true"><button class="x" data-act="fechar" aria-label="Fechar">×</button>${html}</div></div>`;
   $('.drawer').scrollTop = sc;

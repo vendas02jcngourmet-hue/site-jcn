@@ -16,7 +16,7 @@ try:
     entrar(pg, 'vendas', 'admin@jcn.test', 'errada')
     ok('incorretos' in pg.inner_text('.err'), 'senha errada: ' + pg.inner_text('.err'))
     entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026')
-    ok(len(nav(pg)) == 10, 'administrador entra: ' + ' | '.join(nav(pg)))
+    ok(len(nav(pg)) == 13, 'administrador entra: ' + ' | '.join(nav(pg)))
     pg.screenshot(path='/home/claude/real/testes/shots/t0_admin.png')
     ok(not errs, 'sem erro no console depois do login: ' + ' | '.join(errs)[:400])
     print(recusas())

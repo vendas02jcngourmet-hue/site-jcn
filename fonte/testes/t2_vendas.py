@@ -15,7 +15,7 @@ try:
     # ---------- 1. vendedora
     entrar(pg, 'ecommerce', 'marina@jcn.test', 'Marina#2026'); ok('Vendas internas' in pg.inner_text('.err'), 'vendedora na aba E-commerce é mandada para a aba certa: ' + pg.inner_text('.err'))
     entrar(pg, 'vendas', 'marina@jcn.test', 'Marina#2026')
-    ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Pedidos', 'Contas e-commerce', 'Galeria de fotos'], 'menu da vendedora: ' + ' | '.join(nav(pg)))
+    ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Pedidos', 'Ligações', 'Possíveis clientes', 'Contas e-commerce', 'Galeria de fotos'], 'menu da vendedora: ' + ' | '.join(nav(pg)))
     pg.fill('#bv', 'FF011'); pg.press('#bv', 'Enter'); W(); c = pg.inner_text('.cards .card').replace('\n', ' | ')
     ok('R$' in c, 'vendedora vê a tabela de preços: ' + c[:110])
     pg.click('.cards .card .btn'); W(); pg.check('#fx-' + pid('FF996')); pg.check('#ff-' + pid('FF163TV')); W(); soma = pg.inner_text('.soma'); pg.click('[data-act=ficha-add]'); W()

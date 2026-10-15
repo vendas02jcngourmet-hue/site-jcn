@@ -512,3 +512,22 @@ table.tbl.lib tr.grp .btn{min-height:26px;padding:2px 8px;font-size:.8rem;vertic
 .galmini{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .galmini .gimg{border-radius:3px}
 .gvazio{display:grid;place-items:center;color:var(--muted,#6b6b6b);font-size:.9rem;cursor:default}
+/* ============ Ligações e possíveis clientes ============ */
+.grid-lig{display:grid;grid-template-columns:2fr 90px 2fr;gap:12px;margin-top:12px}
+@media (max-width:620px){.grid-lig{grid-template-columns:1fr 90px}.grid-lig .field:last-child{grid-column:1/-1}}
+fieldset.res{border:0;padding:0;margin:14px 0 12px;display:flex;flex-wrap:wrap;gap:8px}
+fieldset.res legend{font-weight:600;font-size:.9rem;margin-bottom:6px;padding:0}
+.opt-res{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1.5px solid var(--line);border-radius:99px;font-weight:600;cursor:pointer;background:var(--surface)}
+.opt-res:has(input:checked){border-color:var(--brand);background:color-mix(in srgb,var(--brand) 10%,transparent)}
+.aviso-lig{margin:10px 0 0;padding:10px 12px;border-radius:4px;background:color-mix(in srgb,var(--brand) 8%,transparent);border:1px solid color-mix(in srgb,var(--brand) 30%,transparent)}
+.linkbtn{background:none;border:0;padding:0;color:var(--brand);text-decoration:underline;cursor:pointer;font:inherit;text-align:left}
+.tbl td.trat{max-width:340px;white-space:normal;font-size:.92rem}
+.cidades{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.cidades .chip{border:1px solid var(--line);cursor:pointer}
+.hist{list-style:none;padding:0;margin:0 0 14px;display:grid;gap:8px}
+.hist li{border-left:3px solid var(--brand);padding:6px 10px;background:var(--surface-2,rgba(0,0,0,.03))}
+.hist li p{margin:4px 0 0;white-space:pre-wrap}
+.barras{display:flex;align-items:flex-end;gap:4px;height:160px;overflow-x:auto;padding-top:18px}
+.bdia{flex:1 0 22px;display:grid;grid-template-rows:auto 1fr auto;height:100%;text-align:center;font-size:.75rem;color:var(--muted)}
+.bdia i{display:block;align-self:end;background:var(--brand);border-radius:2px 2px 0 0;min-height:1px}
+.bdia .bn{font-weight:700;color:var(--text)}
