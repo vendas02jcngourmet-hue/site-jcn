@@ -531,3 +531,13 @@ fieldset.res legend{font-weight:600;font-size:.9rem;margin-bottom:6px;padding:0}
 .bdia{flex:1 0 22px;display:grid;grid-template-rows:auto 1fr auto;height:100%;text-align:center;font-size:.75rem;color:var(--muted)}
 .bdia i{display:block;align-self:end;background:var(--brand);border-radius:2px 2px 0 0;min-height:1px}
 .bdia .bn{font-weight:700;color:var(--text)}
+/* orçamentos das ligações */
+.orc-box{margin:14px 0 0;padding:14px;border:1.5px solid color-mix(in srgb,var(--brand) 35%,transparent);border-radius:4px;background:color-mix(in srgb,var(--brand) 4%,transparent)}
+.orc-abas{margin:0 0 12px}
+.orc-itens{display:grid;gap:10px;margin:0 0 10px}
+.orc-item{display:grid;grid-template-columns:minmax(0,1fr) 84px 130px 110px auto;gap:8px;align-items:end}
+.orc-prod{display:grid;gap:6px}
+.orc-n{display:grid;gap:2px;font-size:.8rem;font-weight:600;color:var(--muted,inherit)}
+.orc-sub{font-weight:700;text-align:right;padding-bottom:9px;font-variant-numeric:tabular-nums}
+.orc-total{text-align:right;margin:10px 0 12px;font:italic 800 1.35rem/1 var(--f-ui)}
+@media (max-width:620px){.orc-item{grid-template-columns:1fr 1fr;padding-bottom:10px;border-bottom:1px solid var(--line)}.orc-prod{grid-column:1/-1}.orc-sub{text-align:left;padding:0}.orc-item>.btn{justify-self:end}}

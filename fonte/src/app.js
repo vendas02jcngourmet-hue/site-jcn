@@ -439,6 +439,7 @@ function renderDrawer() {
   if (dr.tipo === 'pedido-site') { const p = (state.daqui || []).find(x => x.id === dr.id); if (!p) return fecharDrawer(); html = dPedidoSite(p, dr); }
   if (dr.tipo === 'meus-site') html = dMeusSite(dr);
   if (dr.tipo === 'prospect') { html = u ? dProspect(dr, u) : ''; if (!html) return fecharDrawer(); }
+  if (dr.tipo === 'orcamento') { html = u ? dOrcamento(dr, u) : ''; if (!html) return fecharDrawer(); }
   const sc = $('.drawer') ? $('.drawer').scrollTop : 0;
   o.innerHTML = `<div class="drawer-bg" data-act="fundo"><div class="drawer" role="dialog" aria-modal="true"><button class="x" data-act="fechar" aria-label="Fechar">×</button>${html}</div></div>`;
   $('.drawer').scrollTop = sc;

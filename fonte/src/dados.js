@@ -40,7 +40,7 @@ async function selTudo(tabela, consulta) {
   for (let i = 0; ; i += 1000) { const l = await SB.sel(tabela, `${consulta}&limit=1000&offset=${i}`); tudo.push(...l); if (l.length < 1000) return tudo; }
 }
 function inicial() {
-  const d = defaults(); d.usuarios = []; d.pedidos = []; d.daqui = []; d.arquivos = {}; d.crm = { prospects: [], ligacoes: [] };
+  const d = defaults(); d.usuarios = []; d.pedidos = []; d.daqui = []; d.arquivos = {}; d.crm = { prospects: [], ligacoes: [], orcamentos: [] };
   d.conteudo.pix = { chave: '', favorecido: '', banco: '' }; d.conteudo.loja = { ativa: false, acrescimo: 20 };
   return d;
 }
@@ -119,10 +119,20 @@ async function carregarCRM() {
   if (!['admin', 'vendedor'].includes(papelAtual())) { state.crm = { prospects: [], ligacoes: [] }; return; }
   try {
     const [pr, lg, eq] = await Promise.all([selTudo('prospects', 'select=*&order=atualizado_em.desc,id.asc'), selTudo('ligacoes', 'select=*&order=feita_em.desc,id.asc'), SB.rpc('nomes_da_equipe').catch(() => [])]);
-    state.crm = { prospects: pr, ligacoes: lg, equipe: eq || [] };
+    state.crm = { prospects: pr, ligacoes: lg, equipe: eq || [], orcamentos: [] };
   } catch (e) {
     if (e.rede) throw e;
-    state.crm = { prospects: [], ligacoes: [], indisponivel: /PGRST205|42P01|does not exist|schema cache/i.test((e.code || '') + ' ' + e.message) };
+    state.crm = { prospects: [], ligacoes: [], orcamentos: [], indisponivel: /PGRST205|42P01|does not exist|schema cache/i.test((e.code || '') + ' ' + e.message) };
+    return;
+  }
+  // orçamentos (atualização 3): se ainda não rodou, o resto das ligações continua funcionando
+  try {
+    const [orc, itens] = await Promise.all([selTudo('orcamentos', 'select=*&order=criado_em.desc,id.asc'), selTudo('orcamento_itens', 'select=*&order=orcamento_id.asc,ordem.asc')]);
+    const de = {}; itens.forEach(i => (de[i.orcamento_id] = de[i.orcamento_id] || []).push({ ...i, quantidade: Number(i.quantidade), preco_unit: Number(i.preco_unit) }));
+    state.crm.orcamentos = orc.map(o => ({ ...o, itens: de[o.id] || [] }));
+  } catch (e) {
+    if (e.rede) throw e;
+    state.crm.orcIndisponivel = /PGRST205|42P01|does not exist|schema cache/i.test((e.code || '') + ' ' + e.message);
   }
 }
 // Loja do site: os pedidos feitos neste aparelho ficam anotados aqui (state.daqui); o andamento vem do servidor.
@@ -401,6 +411,8 @@ const NUCLEO = {
   async salvarProspect(id, campos) { const r = await SB.upd('prospects', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar este cadastro.'); await carregarCRM(); },
   async apagarLigacao(id) { await SB.del('ligacoes', { id }); await carregarCRM(); },
   async apagarProspect(id) { await SB.del('prospects', { id }); await carregarCRM(); },
+  async salvarOrcamento(d) { const r = await SB.rpc('salvar_orcamento', { p: d }); await carregarCRM(); return r; },
+  async apagarOrcamento(id) { await SB.del('orcamentos', { id }); await carregarCRM(); },
   async definirSenha(id, senha) { await SB.rpc('definir_senha', { p_usuario: id, p_senha: senha }); }
 };
 

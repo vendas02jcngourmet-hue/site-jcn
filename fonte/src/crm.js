@@ -29,7 +29,8 @@ function retornosPendentes(u, soMeus) {
 const linhaLig = (l, mostraVend) => { const p = prospectDe(l.prospect_id) || {}; return `<tr><td>${dataBR(diaDe(l.feita_em))}<div class="note">${horaDe(l.feita_em)}</div></td>
   <td><button class="linkbtn" data-act="abrir-prospect" data-id="${esc(l.prospect_id)}"><b>${esc(p.loja || '—')}</b></button><div class="note">${esc(p.comprador || '')}${p.comprador ? ' · ' : ''}${esc(telFmt(p.telefone || ''))}</div></td>
   <td>${esc(p.cidade || '')}${p.uf ? '/' + esc(p.uf) : ''}</td>${mostraVend ? `<td>${esc(nomeVend(l.vendedor_id))}</td>` : ''}
-  <td>${chipRes(l.resultado)}${l.retornar_em ? `<div class="note">Retornar ${dataBR(l.retornar_em)}</div>` : ''}</td><td class="trat">${esc(l.tratativa)}</td></tr>`; };
+  <td>${chipRes(l.resultado)}${l.retornar_em ? `<div class="note">Retornar ${dataBR(l.retornar_em)}</div>` : ''}</td><td class="trat">${esc(l.tratativa)}${orcLink(l)}</td></tr>`; };
+const orcLink = l => orcs().filter(o => o.ligacao_id === l.id).map(o => `<div class="note"><button class="linkbtn" data-act="abrir-orc" data-id="${esc(o.id)}">Orçamento nº ${esc(o.numero)}</button> · ${brl(totalOrc(o))} · ${esc(SIT_ORC[o.situacao][0])}</div>`).join('');
 
 /* ---------- tela: Ligações ---------- */
 function vLigacoes(u) {
@@ -48,8 +49,10 @@ function vLigacoes(u) {
     <fieldset class="res"><legend>Resultado da ligação</legend>${Object.entries(RESULTADOS).map(([k, [t]]) => `<label class="opt-res"><input type="radio" name="lgres" value="${k}" data-lg="resultado" ${d.resultado === k ? 'checked' : ''}> ${t}</label>`).join('')}</fieldset>
     <label class="field"><span>Tratativa: o que foi conversado</span><textarea id="lg-tratativa" data-lg="tratativa" rows="3" placeholder="Ex.: falou com o João, pediu tabela de fogões industriais, vai ver com o sócio.">${esc(d.tratativa)}</textarea></label>
     <div class="grid-lig" style="margin-top:10px"><label class="field"><span>Retornar em (opcional)</span><input id="lg-retornar_em" type="date" data-lg="retornar_em" value="${esc(d.retornar_em)}" min="${hoje}"></label></div>
+    ${crm().orcIndisponivel ? avisoOrc() : d.orc ? `<div class="orc-box" id="orcLig"><div class="galtop" style="margin:0 0 10px"><h3 style="margin:0">Orçamento desta ligação</h3><button class="linkbtn" data-act="lig-orc-tirar">Tirar o orçamento</button></div>${orcEditor(d.orc, 'lig', false)}</div>`
+      : `<div class="bar" style="margin:12px 0 0"><button class="btn ghost sm" data-act="lig-orc">+ Adicionar orçamento</button><span class="note">Monte o orçamento com os itens que a loja pediu.</span></div>`}
     <p class="err" role="alert" id="lgErro" ${ui.ligErro ? '' : 'hidden'}>${esc(ui.ligErro || '')}</p>
-    <div class="bar" style="margin:12px 0 0"><button class="btn" data-act="lig-salvar">Salvar ligação</button><button class="btn ghost" data-act="lig-limpar">Limpar</button></div></div>
+    <div class="bar" style="margin:12px 0 0"><button class="btn" data-act="lig-salvar">${d.orc ? 'Salvar ligação e orçamento' : 'Salvar ligação'}</button><button class="btn ghost" data-act="lig-limpar">Limpar</button></div></div>
   <div class="panel"><div class="galtop" style="margin:0 0 10px"><h2 style="margin:0">Retornos para hoje e atrasados (${ret.length})</h2>
     ${adm ? '' : `<label class="check"><input type="checkbox" data-chg="lig-meus" ${soMeus ? 'checked' : ''}> Só os meus</label>`}</div>
     ${ret.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Retornar em</th><th>Loja</th><th>Cidade</th><th>Situação</th><th>Última tratativa</th></tr></thead><tbody>
@@ -57,6 +60,7 @@ function vLigacoes(u) {
         <td><button class="linkbtn" data-act="abrir-prospect" data-id="${esc(p.id)}"><b>${esc(p.loja)}</b></button><div class="note">${esc(p.comprador || '')}${p.comprador ? ' · ' : ''}<a href="tel:+55${esc(p.telefone)}">${esc(telFmt(p.telefone))}</a></div></td>
         <td>${esc(p.cidade)}/${esc(p.uf)}</td><td>${chipRes(p.situacao)}</td><td class="trat">${esc((ligDe(p.id)[0] || {}).tratativa || '')}</td></tr>`).join('')}</tbody></table></div>`
       : '<p class="note" style="margin:0">Nenhum retorno pendente.</p>'}</div>
+  ${painelOrcs(u)}
   <div class="panel"><h2>${adm ? 'Últimas ligações da equipe' : 'Minhas últimas ligações'}</h2>
     ${minhas.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Loja</th><th>Cidade</th>${adm ? '<th>Vendedor</th>' : ''}<th>Resultado</th><th>Tratativa</th></tr></thead><tbody>${minhas.map(l => linhaLig(l, adm)).join('')}</tbody></table></div>`
       : '<p class="note" style="margin:0">Nenhuma ligação registrada ainda.</p>'}</div>`;
@@ -107,7 +111,9 @@ function dProspect(dr, u) {
     <button class="btn ghost sm" data-act="lig-desta" data-id="${esc(p.id)}">Registrar nova ligação</button></div>
   <h3>Histórico (${ls.length} ${ls.length === 1 ? 'ligação' : 'ligações'})</h3>
   ${ls.length ? `<ol class="hist">${ls.map(l => `<li><div><b>${dataBR(diaDe(l.feita_em))} ${horaDe(l.feita_em)}</b> · ${esc(nomeVend(l.vendedor_id))} · ${chipRes(l.resultado)}${l.retornar_em ? ` · retornar ${dataBR(l.retornar_em)}` : ''}
-    ${adm ? `<button class="linkbtn" data-act="lig-apagar" data-id="${esc(l.id)}" data-confirm="Confirmar: apagar ligação">Apagar</button>` : ''}</div><p>${esc(l.tratativa)}</p></li>`).join('')}</ol>` : '<p class="note">Nenhuma ligação ainda.</p>'}
+    ${adm ? `<button class="linkbtn" data-act="lig-apagar" data-id="${esc(l.id)}" data-confirm="Confirmar: apagar ligação">Apagar</button>` : ''}</div><p>${esc(l.tratativa)}</p>${orcLink(l)}</li>`).join('')}</ol>` : '<p class="note">Nenhuma ligação ainda.</p>'}
+  ${crm().orcIndisponivel ? '' : `<div class="galtop" style="margin:14px 0 8px"><h3 style="margin:0">Orçamentos (${orcsDe(p.id).length})</h3><button class="btn ghost sm" data-act="orc-novo" data-id="${esc(p.id)}">Novo orçamento</button></div>
+  ${orcsDe(p.id).length ? tabelaOrcs(orcsDe(p.id), false) : '<p class="note">Nenhum orçamento para esta loja.</p>'}`}
   <h3>Dados da loja</h3>
   <div class="grid2">${campo('loja', 'Nome da loja')}${campo('comprador', 'Comprador')}${campo('telefone', 'Telefone', 'inputmode="tel"')}${campo('email', 'E-mail', 'type="email"')}${campo('cidade', 'Cidade')}
     <label class="field"><span>UF</span><select data-pd="uf">${UFS.map(x => `<option ${x === d.uf ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
@@ -171,6 +177,7 @@ function vRelLig(u) {
   ${pc.size ? `<div class="panel" id="relCid"><h2>Por cidade</h2><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Cidade</th><th class="num">Ligações</th><th class="num">Lojas</th><th class="num">Interessados</th><th class="num">Viraram clientes</th></tr></thead><tbody>
     ${[...pc.entries()].sort((a, b) => b[1].n - a[1].n).map(([c, o]) => `<tr><td>${esc(c)}</td><td class="num">${o.n}</td><td class="num">${o.lojas.size}</td><td class="num">${o.int}</td><td class="num">${o.cli}</td></tr>`).join('')}
   </tbody></table></div></div>` : ''}
+  ${relOrcs(de, ate, r)}
   <div class="panel" id="relLista"><h2>Todas as ligações do período (${ls.length})</h2>
     ${ls.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Data</th><th>Loja</th><th>Cidade</th><th>Vendedor</th><th>Resultado</th><th>Tratativa</th></tr></thead><tbody>${ls.slice(0, 300).map(l => linhaLig(l, true)).join('')}</tbody></table></div>${ls.length > 300 ? '<p class="note">Mostrando as 300 mais recentes. A planilha traz todas.</p>' : ''}` : '<p class="note" style="margin:0">Nenhuma ligação neste período.</p>'}</div>`;
 }
@@ -196,8 +203,17 @@ Object.assign(acts, {
     if (!d.resultado) return erro('Escolha o resultado da ligação.');
     if (!d.tratativa.trim()) return erro('Escreva a tratativa: o que foi conversado.');
     if (d.resultado === 'retornar' && !d.retornar_em) return erro('Informe quando retornar.');
+    if (d.orc) { const m = problemaOrc(d.orc); if (m) { if (/motivo/.test(m)) d.orc.aba = 'motivo'; return erro('Orçamento: ' + m); } }
     ui.ocupado = true; const bt = $('[data-act=lig-salvar]'); if (bt) { bt.disabled = true; bt.textContent = 'Salvando…'; }
-    try { await API.registrarLigacao({ ...d, telefone: tel }); ui.lig = novaLig(); ui.ligErro = ''; renderApp(); toast('Ligação registrada.'); const t = $('#lg-telefone'); if (t) t.focus(); }
+    try {
+      const { orc, ...lig } = d, r = await API.registrarLigacao({ ...lig, telefone: tel }); ui.lig = novaLig(); ui.ligErro = '';
+      if (orc) {
+        try { const o = await API.salvarOrcamento({ ...corpoOrc(orc), prospect_id: r.prospect_id, ligacao_id: r.ligacao_id }); renderApp(); toast(`Ligação registrada com o orçamento nº ${o.numero}.`); }
+        catch (err) { renderApp(); ui.drawer = { tipo: 'orcamento', draft: { ...orc, prospect_id: r.prospect_id, ligacao_id: r.ligacao_id }, erro: 'A ligação foi salva, mas o orçamento não: ' + msgErro(err) }; renderDrawer(); }
+        return;
+      }
+      renderApp(); toast('Ligação registrada.'); const t = $('#lg-telefone'); if (t) t.focus();
+    }
     catch (err) { erro(msgErro(err)); } finally { ui.ocupado = false; }
   },
   'abrir-prospect': e => { ui.drawer = { tipo: 'prospect', id: e.dataset.id }; renderDrawer(); },
