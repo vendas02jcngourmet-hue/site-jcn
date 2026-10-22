@@ -197,7 +197,7 @@ function vConteudo() {
   <div class="panel"><h2>Abertura</h2><div class="rows">${campo('heroTitulo', 'Título')}${campo('heroTexto', 'Texto de apoio', 1)}</div></div>
   <div class="panel"><h2>Legendas das cozinhas</h2><div class="rows">${campo('txtG', 'Cozinha gourmet', 1)}${campo('txtR', 'Cozinha residencial', 1)}</div></div>
   <div class="panel"><h2>Galeria</h2><div class="photos">
-    ${c.galeria.map((r, i) => `<div class="ph"><img src="${src(r)}" alt=""><button data-act="gal-rem" data-i="${i}" aria-label="Remover foto">×</button></div>`).join('')}
+    ${c.galeria.map((r, i) => `<div class="ph ph-rm"><img src="${src(r)}" alt=""><button class="rm" data-act="gal-rem" data-i="${i}" data-confirm="Confirmar" aria-label="Remover foto ${i + 1}">Remover</button></div>`).join('')}
     <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="foto-galeria"></label></div></div>
   <div class="panel"><h2>Loja do site (consumidor final)</h2>
     <p class="note" style="margin:0 0 10px">Fica no fim da página inicial, depois das outras linhas. Mostra os produtos ativos que têm preço, pelo valor da tabela JCN mais o acréscimo abaixo. Os pedidos chegam em Pedidos, com a origem "Loja do site".</p>

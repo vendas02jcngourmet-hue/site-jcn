@@ -736,7 +736,7 @@ function vConteudo() {
   <div class="panel"><h2>Abertura</h2><div class="rows">${campo('heroTitulo', 'Título')}${campo('heroTexto', 'Texto de apoio', 1)}</div></div>
   <div class="panel"><h2>Legendas das cozinhas</h2><div class="rows">${campo('txtG', 'Cozinha gourmet', 1)}${campo('txtR', 'Cozinha residencial', 1)}</div></div>
   <div class="panel"><h2>Galeria</h2><div class="photos">
-    ${c.galeria.map((r, i) => `<div class="ph"><img src="${src(r)}" alt=""><button data-act="gal-rem" data-i="${i}" aria-label="Remover foto">×</button></div>`).join('')}
+    ${c.galeria.map((r, i) => `<div class="ph ph-rm"><img src="${src(r)}" alt=""><button class="rm" data-act="gal-rem" data-i="${i}" data-confirm="Confirmar" aria-label="Remover foto ${i + 1}">Remover</button></div>`).join('')}
     <label tabindex="0" class="btn ghost sm" style="align-self:center">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="foto-galeria"></label></div></div>
   <div class="panel"><h2>Loja do site (consumidor final)</h2>
     <p class="note" style="margin:0 0 10px">Fica no fim da página inicial, depois das outras linhas. Mostra os produtos ativos que têm preço, pelo valor da tabela JCN mais o acréscimo abaixo. Os pedidos chegam em Pedidos, com a origem "Loja do site".</p>
@@ -1788,13 +1788,14 @@ function vGaleria(u) {
       ${g.fotos.length ? `<button class="gimg" data-act="gal-ver" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, g.fotos.length))}" aria-label="Ampliar ${esc(g.titulo)}"><img loading="lazy" src="${src(g.fotos[0])}" alt="${esc(g.titulo)}"></button>` : '<div class="gimg gvazio">Sem foto ainda</div>'}
       ${g.fotos.length > 1 ? `<div class="galmini">${g.fotos.slice(1).map((r, i) => `<button class="gimg" data-act="gal-ver" data-ref="${esc(r)}" data-nome="${esc(nomeArquivo(g.base, i + 1, g.fotos.length))}" aria-label="Ampliar outra foto de ${esc(g.titulo)}"><img loading="lazy" src="${src(r)}" alt=""></button>`).join('')}</div>` : ''}
       <div><b>${esc(g.titulo)}</b>${g.cods.length ? `<div class="note">${esc(g.cods.join(' · '))}</div>` : ''}</div>
+      ${u.papel === 'admin' && g.fotos.length ? `<div class="photos gal-adm" aria-label="Fotos de ${esc(g.titulo)}">${g.fotos.map((r, i) => `<div class="gfx"><img src="${src(r)}" alt=""><button class="rm" data-act="gal-rem-foto" data-id="${esc(g.id)}" data-ref="${esc(r)}" data-confirm="Confirmar" aria-label="Remover a foto ${i + 1} de ${esc(g.titulo)}">Remover</button></div>`).join('')}</div>` : ''}
       ${u.papel === 'admin' ? `<label tabindex="0" class="btn ghost sm">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="gal-foto" data-id="${esc(g.id)}"></label>` : ''}
       ${!g.fotos.length ? '' : g.fotos.length > 1 ? `<button class="btn sm" data-act="gal-baixar-todas" data-id="${esc(g.id)}">Baixar as ${g.fotos.length} fotos</button>`
         : `<button class="btn ghost sm" data-act="gal-baixar" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, 1))}">Baixar foto</button>`}
     </article>`).join('')}</div></section>`).join('')}
   ${site.length ? `<section class="galcat"><h2>Fotos do site</h2><div class="panel galprod"><div class="galtop"><div><b>Ambientes e outras linhas</b></div>
     <button class="btn sm" data-act="gal-baixar-site">Baixar todas (${site.length})</button></div>
-    <div class="galgrid">${site.map((r, i) => foto(r, 'jcn-gourmet-' + (i + 1), 'Foto do site JCN Gourmet')).join('')}</div></div></section>` : ''}`;
+    <div class="galgrid">${site.map((r, i) => foto(r, 'jcn-gourmet-' + (i + 1), 'Foto do site JCN Gourmet') .replace('</figure>', u.papel === 'admin' && (state.conteudo.galeria || []).includes(r) ? `<button class="btn danger sm" data-act="gal-rem-site" data-ref="${esc(r)}" data-confirm="Confirmar: remover do site">Remover do site</button></figure>` : '</figure>')).join('')}</div></div></section>` : ''}`;
 }
 async function baixarFoto(ref, nome) {
   const r = await fetch(src(ref)); if (!r.ok) throw new Error('foto');
@@ -1816,6 +1817,19 @@ Object.assign(acts, {
   'gal-baixar': async e => { try { await baixarFoto(e.dataset.ref, e.dataset.nome); } catch (x) { toast('Não foi possível baixar a foto. Tente de novo.'); } },
   'gal-baixar-todas': e => { const u = eu(); if (!u) return; const g = blocosDaGaleria(u).flatMap(b => b.grupos).find(x => x.id === e.dataset.id); if (g) baixarVarias(g.fotos.map((r, i) => [r, nomeArquivo(g.base, i, g.fotos.length)])); },
   'gal-baixar-site': () => { const s = [...new Set([...(state.conteudo.galeria || []), ...(state.conteudo.linhas || []).filter(l => l.ativo).flatMap(l => l.fotos || [])])]; baixarVarias(s.map((r, i) => [r, 'jcn-gourmet-' + (i + 1)])); }
+});
+Object.assign(acts, {
+  // administração: tira a foto do produto (nos fogões de duas grelhas, dos dois códigos)
+  'gal-rem-foto': e => {
+    if (eu().papel !== 'admin') return;
+    const p = prod(e.dataset.id), ref = e.dataset.ref; if (!p) return;
+    const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];
+    grupo.forEach(x => { x.fotos = x.fotos.filter(f => f !== ref); }); salvar('catalogo'); renderApp(); toast('Foto removida de ' + p.nome + '.');
+  },
+  'gal-rem-site': e => {
+    if (eu().papel !== 'admin') return;
+    state.conteudo.galeria = state.conteudo.galeria.filter(f => f !== e.dataset.ref); salvar('conteudo'); renderApp(); toast('Foto removida do site.');
+  }
 });
 Object.assign(uploads, {
   // administração: foto nova direto na galeria vai para o cadastro do produto (e aparece no site e para as lojas)
@@ -2102,9 +2116,9 @@ const orcsDe = pid => orcs().filter(o => o.prospect_id === pid);
 const totalOrc = o => (o.itens || []).reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.preco_unit) || 0), 0);
 const podeOrc = (o, u) => u && (u.papel === 'admin' || (u.papel === 'vendedor' && (!o.id || o.vendedor_id === u.id)));
 const itemVazio = () => ({ produto_id: '', descricao: '', codigo: '', quantidade: 1, preco_unit: 0 });
-const novoOrc = pid => ({ id: '', prospect_id: pid || '', situacao: 'aberto', validade: somaDias(hojeISO(), 7), obs: '', motivo: '', motivo_detalhe: '', itens: [itemVazio()], aba: 'itens' });
+const novoOrc = pid => ({ id: '', prospect_id: pid || '', situacao: 'aberto', validade: somaDias(hojeISO(), 7), obs: '', motivo: '', motivo_detalhe: '', itens: [], aba: 'itens' });
 const rascunhoOrc = o => ({ id: o.id, numero: o.numero, prospect_id: o.prospect_id, ligacao_id: o.ligacao_id, vendedor_id: o.vendedor_id, criado_em: o.criado_em, situacao: o.situacao, validade: o.validade || '', obs: o.obs || '',
-  motivo: o.motivo || '', motivo_detalhe: o.motivo_detalhe || '', itens: o.itens.length ? o.itens.map(i => ({ produto_id: i.produto_id || '', descricao: i.descricao, codigo: i.codigo || '', quantidade: i.quantidade, preco_unit: i.preco_unit, livre: !i.produto_id })) : [itemVazio()], aba: o.situacao === 'nao_concluido' ? 'motivo' : 'itens' });
+  motivo: o.motivo || '', motivo_detalhe: o.motivo_detalhe || '', itens: o.itens.length ? o.itens.map(i => ({ produto_id: i.produto_id || '', descricao: i.descricao, codigo: i.codigo || '', quantidade: i.quantidade, preco_unit: i.preco_unit, livre: !i.produto_id })) : [], aba: o.situacao === 'nao_concluido' ? 'motivo' : 'itens' });
 const chipOrc = k => chip(SIT_ORC[k] || [k, '']);
 const orcDraft = onde => onde === 'lig' ? ui.lig && ui.lig.orc : ui.drawer && ui.drawer.tipo === 'orcamento' ? ui.drawer.draft : null;
 const redesenharOrc = onde => onde === 'lig' ? renderApp() : renderDrawer();
@@ -2118,9 +2132,10 @@ function orcEditor(d, onde, so) {
   const ativos = state.catalogo.produtos.filter(p => p.ativo), dis = so ? 'disabled' : '', aba = d.aba || 'itens', id = x => `${x}-${onde}`;
   const opcoes = it => `<option value="">Escolha o produto</option>${state.catalogo.categorias.map(c => { const g = ativos.filter(a => a.cat === c.id); return g.length ? `<optgroup label="${esc(c.nome)}">${g.map(a => `<option value="${esc(a.id)}" ${a.id === it.produto_id ? 'selected' : ''}>${esc(rotulo(a))}${a.codigo ? ' · ' + esc(a.codigo) : ''}</option>`).join('')}</optgroup>` : ''; }).join('')}
     <option value="__livre" ${it.livre && !it.produto_id ? 'selected' : ''}>Outro item (escrever)</option>`;
-  const linhas = d.itens.map((it, i) => `<div class="orc-item">
-      <div class="orc-prod"><select class="inp" aria-label="Produto do item ${i + 1}" data-oi="produto_id" data-i="${i}" data-onde="${onde}" ${dis}>${opcoes(it)}</select>
-        ${it.livre && !it.produto_id ? `<input class="inp" aria-label="Descrição do item ${i + 1}" placeholder="Descreva o item" data-oi="descricao" data-i="${i}" data-onde="${onde}" value="${esc(it.descricao)}" ${dis}>` : ''}</div>
+  const itensV = d.itens.filter(it => it.produto_id || it.livre || (it.descricao || '').trim());
+  const linhas = d.itens.map((it, i) => !(it.produto_id || it.livre || (it.descricao || '').trim()) ? '' : `<div class="orc-item">
+      <div class="orc-prod">${it.produto_id || !it.livre ? `<div class="orc-desc"><b>${esc(it.descricao || 'Item')}</b>${it.codigo ? `<small>${esc(it.codigo)}</small>` : ''}</div>`
+        : `<input class="inp" aria-label="Descrição do item ${i + 1}" placeholder="Descreva o item" data-oi="descricao" data-i="${i}" data-onde="${onde}" value="${esc(it.descricao)}" ${dis}>`}</div>
       <label class="orc-n"><span>Qtd.</span><input class="inp" type="number" min="1" max="9999" step="1" inputmode="numeric" data-oi="quantidade" data-i="${i}" data-onde="${onde}" value="${esc(it.quantidade)}" ${dis}></label>
       <label class="orc-n"><span>Preço un. (R$)</span><input class="inp" type="number" min="0" step="0.01" inputmode="decimal" data-oi="preco_unit" data-i="${i}" data-onde="${onde}" value="${esc(it.preco_unit)}" ${dis}></label>
       <span class="orc-sub" data-sub="${i}">${brl((+it.quantidade || 0) * (+it.preco_unit || 0))}</span>
@@ -2129,8 +2144,8 @@ function orcEditor(d, onde, so) {
   return `<div class="tabs orc-abas" role="tablist">
       <button role="tab" aria-selected="${aba === 'itens'}" data-act="orc-aba" data-aba="itens" data-onde="${onde}">Itens do orçamento</button>
       <button role="tab" aria-selected="${aba === 'motivo'}" data-act="orc-aba" data-aba="motivo" data-onde="${onde}">Por que não foi concluído${d.situacao === 'nao_concluido' ? ' •' : ''}</button></div>
-    ${aba === 'itens' ? `<div class="orc-itens">${linhas}</div>
-      ${so ? '' : `<button class="btn ghost sm" data-act="orc-item-add" data-onde="${onde}">Adicionar item</button>`}
+    ${aba === 'itens' ? `${itensV.length ? `<div class="orc-itens">${linhas}</div>` : `<p class="note" style="margin:0 0 8px">Nenhum item ainda. Escolha os produtos abaixo.</p>`}
+      ${so ? '' : montador(d, onde)}
       <p class="orc-total">Total <b id="${id('orcTotal')}">${brl(totalOrc(d))}</b></p>
       <div class="grid2"><label class="field"><span>Válido até</span><input type="date" data-oe="validade" data-onde="${onde}" value="${esc(d.validade)}" ${dis}></label>
         <label class="field"><span>Situação</span><select data-oe="situacao" data-onde="${onde}" ${dis}>${Object.entries(SIT_ORC).map(([k, [t]]) => `<option value="${k}" ${k === sit ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
@@ -2139,6 +2154,40 @@ function orcEditor(d, onde, so) {
       <label class="field"><span>Motivo</span><select data-oe="motivo" data-onde="${onde}" ${dis}><option value="">Ainda não sei / foi concluído</option>${Object.entries(MOTIVOS).map(([k, t]) => `<option value="${k}" ${k === d.motivo ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       <label class="field" style="margin-top:10px"><span>Por que não foi concluído</span><textarea rows="5" data-oe="motivo_detalhe" data-onde="${onde}" placeholder="Ex.: achou o frete caro para Rio Preto; o concorrente fez R$ 200 a menos no FF011; pediu para ver de novo no mês que vem." ${dis}>${esc(d.motivo_detalhe)}</textarea></label>
       <p class="note" style="margin:8px 0 0">Situação agora: ${chipOrc(sit)}</p>`}`;
+}
+/* montador do orçamento: escolhe o produto com cliques, depois a grelha (obrigatória) e o forno (opcional) */
+function montador(d, onde) {
+  const k = d.pick || (d.pick = { cat: 'colors', busca: '', modelo: '', sel: '', forno: '', qtd: 1 });
+  const ativos = state.catalogo.produtos.filter(p => p.ativo && (cat(p.cat) || {}).ativa), u = eu();
+  const de = (a, x) => `data-act="${a}" data-onde="${onde}"${x || ''}`;
+  if (k.modelo) {
+    const g = modelos(ativos).find(m => m.some(p => p.id === k.modelo)) || [], p0 = g[0];
+    if (!p0) { k.modelo = ''; return montador(d, onde); }
+    if (g.length === 1) k.sel = p0.id;
+    const at = g.find(p => p.id === k.sel), p = at || p0, fs = fornosDe(p, 'venda', u), fa = fs.find(f => f.p.id === k.forno);
+    if (!fa) k.forno = '';
+    const tot = at ? (at.preco + (fa ? fa.preco : 0)) * (k.qtd || 1) : 0;
+    return `<div class="mont" id="mont-${onde}"><div class="mont-top"><button class="linkbtn" ${de('pk-voltar')}>← Voltar aos produtos</button></div>
+      <div class="mont-sel"><div class="ph">${fotoDe(p, p.nome)}</div><div><h4>${esc(p.nome)}</h4>
+        ${g.length > 1 ? `<p class="leg">1. Escolha a grelha <span class="opc obr">obrigatória</span></p><div class="pk-ops">${g.map(x => `<button class="pk-op${x.id === k.sel ? ' sel' : ''}" ${de('pk-grelha', ` data-id="${esc(x.id)}"`)} aria-pressed="${x.id === k.sel}"><b>${esc(GRELHAS[x.grelha] || detalhe(x))}</b><small>${esc(x.codigo || '')}</small><span>${precoTxt(x.preco)}</span></button>`).join('')}</div>`
+          : `<p class="leg">${grelhaDe(p) ? `Grelha: <b>${esc(grelhaDe(p))}</b> (única deste modelo)` : esc(detalhe(p) || '')} · ${esc(p.codigo || '')} · <b>${precoTxt(p.preco)}</b></p>`}
+        ${fs.length ? `<p class="leg">${g.length > 1 ? '2. ' : ''}Forno <span class="opc">opcional</span></p><div class="pk-ops">
+          <button class="pk-op${fa ? '' : ' sel'}" ${de('pk-forno', ' data-id=""')} aria-pressed="${!fa}"><b>Sem forno</b></button>
+          ${fs.map(f => `<button class="pk-op${f === fa ? ' sel' : ''}" ${de('pk-forno', ` data-id="${esc(f.p.id)}"`)} aria-pressed="${f === fa}"><b>${esc(nomeForno(f.p, true))}</b><small>${esc(f.p.codigo || '')}</small><span>+ ${brl(f.preco)}</span></button>`).join('')}</div>`
+          : ehFogao(p) ? `<p class="note">${specDe(p, 'forno interno') || specDe(p, 'forno') ? 'Este fogão já vem com forno.' : 'Este modelo não leva forno avulso.'}</p>` : ''}
+        <div class="pk-fim"><div class="qty"><button ${de('pk-qtd', ' data-d="-1"')} aria-label="Diminuir">−</button><b class="pk-q">${k.qtd || 1}</b><button ${de('pk-qtd', ' data-d="1"')} aria-label="Aumentar">+</button></div>
+          <button class="btn" ${de('pk-add')} ${at ? '' : 'disabled'}>${at ? `Adicionar ao orçamento · ${brl(tot)}` : 'Escolha a grelha'}</button></div>
+      </div></div></div>`;
+  }
+  const q = (k.busca || '').trim().toLowerCase(), cats = state.catalogo.categorias.filter(c => c.ativa !== false && ativos.some(p => p.cat === c.id));
+  const lista = modelos(ativos.filter(p => q ? (p.nome + ' ' + (p.codigo || '') + ' ' + (p.cor || '')).toLowerCase().includes(q) || ativos.some(x => x.grupo && x.grupo === p.grupo && (x.codigo || '').toLowerCase().includes(q)) : p.cat === k.cat));
+  return `<div class="mont" id="mont-${onde}"><div class="mont-top"><b>Adicionar produto</b>
+      <input class="inp" type="search" placeholder="Buscar por nome ou código" data-pk="busca" data-onde="${onde}" value="${esc(k.busca)}" aria-label="Buscar produto">
+      <button class="btn ghost sm" ${de('pk-livre')}>Item avulso (escrever)</button></div>
+    ${q ? '' : `<div class="pk-cats">${cats.map(c => `<button class="chip${c.id === k.cat ? ' on' : ''}" ${de('pk-cat', ` data-id="${esc(c.id)}"`)}>${esc(c.nome)}</button>`).join('')}</div>`}
+    <div class="pk-grid">${lista.slice(0, 60).map(g => { const p = g[0], mn = Math.min(...g.map(x => x.preco > 0 ? x.preco : Infinity)), fo = g.some(x => (x.fornos || []).length);
+      return `<button class="pk-card" ${de('pk-modelo', ` data-id="${esc(p.id)}"`)}><span class="ph">${fotoDe(p, '')}</span><b>${esc(p.cat === 'colors' ? `${p.nome} (${p.cor})` : p.nome)}</b>
+        <small>${esc(g.map(x => x.codigo).filter(Boolean).join(' · '))}</small><span class="pk-pr">${isFinite(mn) ? (g.length > 1 ? 'a partir de ' : '') + brl(mn) : 'Preço a definir'}${g.length > 1 ? ' · 2 grelhas' : ''}${fo ? ' · forno opcional' : ''}</span></button>`; }).join('') || '<p class="note">Nenhum produto encontrado.</p>'}</div></div>`;
 }
 // confere o rascunho antes de gravar; devolve a mensagem de erro ou ''
 function problemaOrc(d) {
@@ -2217,7 +2266,7 @@ Object.assign(acts, {
   'lig-orc-tirar': () => { delete ui.lig.orc; renderApp(); },
   'orc-aba': e => { const d = orcDraft(e.dataset.onde); if (!d) return; d.aba = e.dataset.aba; redesenharOrc(e.dataset.onde); },
   'orc-item-add': e => { const d = orcDraft(e.dataset.onde); if (!d) return; d.itens.push(itemVazio()); redesenharOrc(e.dataset.onde); },
-  'orc-item-rem': e => { const d = orcDraft(e.dataset.onde); if (!d) return; d.itens.splice(+e.dataset.i, 1); if (!d.itens.length) d.itens.push(itemVazio()); redesenharOrc(e.dataset.onde); },
+  'orc-item-rem': e => { const d = orcDraft(e.dataset.onde); if (!d) return; d.itens.splice(+e.dataset.i, 1); redesenharOrc(e.dataset.onde); },
   'orc-novo': e => { ui.drawer = { tipo: 'orcamento', draft: novoOrc(e.dataset.id) }; renderDrawer(); },
   'abrir-orc': e => { const o = orcDe(e.dataset.id); if (!o) return; ui.drawer = { tipo: 'orcamento', draft: rascunhoOrc(o) }; renderDrawer(); },
   'orc-f': e => { ui.orcF = e.dataset.f; renderApp(); },
@@ -2234,6 +2283,30 @@ Object.assign(acts, {
       .concat(orcs().filter(o => { const d = diaDe(o.criado_em), p = prospectDe(o.prospect_id) || {}; return d >= de && d <= ate && (!r.vendedor || o.vendedor_id === r.vendedor) && (!r.cidade || (p.cidade + '/' + p.uf) === r.cidade); })
         .map(o => { const p = prospectDe(o.prospect_id) || {}; return [o.numero, dataBR(diaDe(o.criado_em)), nomeVend(o.vendedor_id), p.loja, p.cidade, p.uf, telFmt(p.telefone || ''), resumoItens(o), totalOrc(o).toFixed(2).replace('.', ','), SIT_ORC[o.situacao][0], MOTIVOS[o.motivo] || '', o.motivo_detalhe, o.validade ? dataBR(o.validade) : '', o.obs]; }))); }
 });
+const pk = e => { const d = orcDraft(e.dataset.onde); return d && d.pick ? [d, d.pick] : [null, null]; };
+const pkVolta = onde => { redesenharOrc(onde); const m = $(`#mont-${onde}`); if (m && m.getBoundingClientRect().top < 0) m.scrollIntoView({ block: 'start' }); };
+Object.assign(acts, {
+  'pk-cat': e => { const [d, k] = pk(e); if (!d) return; k.cat = e.dataset.id; redesenharOrc(e.dataset.onde); },
+  'pk-modelo': e => { const [d, k] = pk(e); if (!d) return; Object.assign(k, { modelo: e.dataset.id, sel: '', forno: '', qtd: 1 }); pkVolta(e.dataset.onde); },
+  'pk-voltar': e => { const [d, k] = pk(e); if (!d) return; k.modelo = ''; pkVolta(e.dataset.onde); },
+  'pk-grelha': e => { const [d, k] = pk(e); if (!d) return; k.sel = e.dataset.id; redesenharOrc(e.dataset.onde); },
+  'pk-forno': e => { const [d, k] = pk(e); if (!d) return; k.forno = e.dataset.id; redesenharOrc(e.dataset.onde); },
+  'pk-qtd': e => { const [d, k] = pk(e); if (!d) return; k.qtd = Math.min(999, Math.max(1, (k.qtd || 1) + +e.dataset.d)); redesenharOrc(e.dataset.onde); },
+  'pk-livre': e => { const d = orcDraft(e.dataset.onde); if (!d) return; d.itens = d.itens.filter(i => i.produto_id || (i.descricao || '').trim() || i.livre); d.itens.push({ ...itemVazio(), livre: true }); redesenharOrc(e.dataset.onde);
+    const ins = $$(`[data-oi=descricao][data-onde="${e.dataset.onde}"]`); if (ins.length) ins[ins.length - 1].focus(); },
+  'pk-add': e => {
+    const [d, k] = pk(e); if (!d) return; const p = prod(k.sel); if (!p) return;
+    const q = k.qtd || 1, f = k.forno && prod(k.forno);
+    d.itens = d.itens.filter(i => i.produto_id || (i.descricao || '').trim());
+    const por = (x) => { const ja = d.itens.find(i => i.produto_id === x.id); if (ja) ja.quantidade = (+ja.quantidade || 0) + q; else d.itens.push({ produto_id: x.id, descricao: rotulo(x), codigo: x.codigo || '', quantidade: q, preco_unit: x.preco || 0 }); };
+    por(p); if (f) por(f);
+    Object.assign(k, { modelo: '', sel: '', forno: '', qtd: 1 });
+    redesenharOrc(e.dataset.onde); toast(`${q} × ${rotulo(p)}${f ? ' + forno' : ''} no orçamento.`);
+  }
+});
+let tPk = null;
+document.addEventListener('input', ev => { const t = ev.target; if (!t.dataset || t.dataset.pk !== 'busca') return; const d = orcDraft(t.dataset.onde); if (!d || !d.pick) return;
+  d.pick.busca = t.value; clearTimeout(tPk); tPk = setTimeout(() => { const onde = t.dataset.onde; redesenharOrc(onde); const i = $(`[data-pk=busca][data-onde="${onde}"]`); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 300); });
 Object.assign(chgs, { 'orc-todos': e => { ui.orcTodos = e.checked; renderApp(); } });
 // digitação nos campos do orçamento: guarda no rascunho; o total se atualiza sem redesenhar (para não perder o cursor)
 function campoOrc(t, final) {

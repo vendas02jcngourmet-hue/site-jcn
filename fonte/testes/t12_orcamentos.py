@@ -10,6 +10,13 @@ conta('Marina Tavares', 'marina@jcn.test', 'vendedor', 'Marina#2026'); conta('Br
 # dois produtos com preço, para escolher no orçamento
 p1, n1, v1 = banco("select p.id || '|' || p.nome || '|' || r.valor from produtos p join precos r on r.produto_id = p.id where p.ativo and r.valor > 0 order by p.ordem, p.id limit 1").split('|')
 p2 = banco(f"select p.id from produtos p join precos r on r.produto_id = p.id where p.ativo and r.valor > 0 and p.id <> '{p1}' order by p.ordem desc, p.id limit 1")
+cod = lambda pid: banco(f"select codigo from produtos where id = '{pid}'")
+def escolher(pg, esc_, pid, qtd=1):
+    # montador: busca pelo código, clica no produto, escolhe a grelha (se houver) e adiciona
+    pg.fill(f'{esc_} [data-pk=busca]', cod(pid)); pg.wait_for_timeout(700); pg.click(f'{esc_} .pk-card >> nth=0'); pg.wait_for_timeout(300)
+    if pg.locator(f'{esc_} [data-act=pk-grelha]').count(): pg.click(f'{esc_} [data-act=pk-grelha][data-id="{pid}"]'); pg.wait_for_timeout(200)
+    for _ in range(qtd - 1): pg.click(f'{esc_} [data-act=pk-qtd][data-d="1"]'); pg.wait_for_timeout(120)
+    pg.click(f'{esc_} [data-act=pk-add]'); pg.wait_for_timeout(300)
 try:
   with sync_playwright() as p:
     br = p.chromium.launch(); pg, errs = pagina(br, accept_downloads=True); W = lambda ms=300: pg.wait_for_timeout(ms)
@@ -20,12 +27,12 @@ try:
     pg.click('[data-act=lig-orc]'); W()
     ok(pg.locator('#orcLig .orc-abas [role=tab]').count() == 2 and 'Por que não foi concluído' in pg.inner_text('#orcLig'), 'orçamento abre com as abas de itens e do motivo')
     pg.click('[data-act=lig-salvar]'); W(); ok('Orçamento' in pg.inner_text('#lgErro'), 'orçamento sem itens não salva: ' + pg.inner_text('#lgErro'))
-    pg.select_option('#orcLig [data-oi=produto_id][data-i="0"]', p1); W()
-    ok(abs(float(pg.input_value('#orcLig [data-oi=preco_unit][data-i="0"]')) - float(v1)) < .01, 'escolher o produto já traz o preço da tabela')
-    pg.fill('#orcLig [data-oi=quantidade][data-i="0"]', '2'); W(150)
-    pg.click('[data-act=orc-item-add]'); W(); pg.select_option('#orcLig [data-oi=produto_id][data-i="1"]', p2); W()
+    ok(pg.locator('#orcLig .pk-card').count() >= 5 and pg.locator('#orcLig .pk-cats .chip').count() >= 10, 'montador com categorias e produtos para clicar')
+    escolher(pg, '#orcLig', p1, 2)
+    ok(abs(float(pg.input_value('#orcLig [data-oi=preco_unit][data-i="0"]')) - float(v1)) < .01 and pg.input_value('#orcLig [data-oi=quantidade][data-i="0"]') == '2', 'escolher o produto já traz o preço da tabela e a quantidade')
+    escolher(pg, '#orcLig', p2)
     pg.fill('#orcLig [data-oi=preco_unit][data-i="1"]', '150.5'); pg.press('#orcLig [data-oi=preco_unit][data-i="1"]', 'Tab'); W()
-    pg.click('[data-act=orc-item-add]'); W(); pg.select_option('#orcLig [data-oi=produto_id][data-i="2"]', '__livre'); W(); pg.fill('#orcLig [data-oi=descricao][data-i="2"]', 'Frete até Catanduva'); pg.fill('#orcLig [data-oi=preco_unit][data-i="2"]', '80'); pg.press('#orcLig [data-oi=preco_unit][data-i="2"]', 'Tab'); W()
+    pg.click('#orcLig [data-act=pk-livre]'); W(); pg.fill('#orcLig [data-oi=descricao][data-i="2"]', 'Frete até Catanduva'); pg.fill('#orcLig [data-oi=preco_unit][data-i="2"]', '80'); pg.press('#orcLig [data-oi=preco_unit][data-i="2"]', 'Tab'); W()
     esperado = 2 * float(v1) + 150.5 + 80
     tot = pg.inner_text('#orcTotal-lig'); ok(f'{esperado:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.') in tot, f'total do orçamento soma os itens: {tot}')
     pg.screenshot(path=R + '/testes/shots/t12_ligacao_orcamento.png', full_page=True)
@@ -54,7 +61,7 @@ try:
     ok(banco("select motivo from orcamentos") == 'concorrente', 'motivo trocado')
     # pela ficha da loja: novo orçamento
     pg.click('.drawer [data-act=abrir-prospect]'); W(); ok('Orçamentos (1)' in pg.inner_text('.drawer'), 'a ficha da loja lista os orçamentos')
-    pg.click('[data-act=orc-novo]'); W(); pg.select_option('.drawer [data-oi=produto_id][data-i="0"]', p1); W(); pg.select_option('.drawer [data-oe=situacao]', 'concluido'); W(); pg.click('[data-act=orc-salvar]'); parado(pg, 900)
+    pg.click('[data-act=orc-novo]'); W(); escolher(pg, '.drawer', p1); pg.select_option('.drawer [data-oe=situacao]', 'concluido'); W(); pg.click('[data-act=orc-salvar]'); parado(pg, 900)
     ok(banco("select count(*) from orcamentos where situacao = 'concluido' and ligacao_id is null") == '1', 'novo orçamento pela ficha da loja, já concluído')
     ok(pg.locator('.drawer a[href^="https://wa.me/5517991112222?text="]').count() == 1, 'orçamento salvo pode ser enviado pelo WhatsApp')
     pg.click('.drawer [data-act=fechar]'); W(); sair(pg)

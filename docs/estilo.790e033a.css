@@ -541,3 +541,34 @@ fieldset.res legend{font-weight:600;font-size:.9rem;margin-bottom:6px;padding:0}
 .orc-sub{font-weight:700;text-align:right;padding-bottom:9px;font-variant-numeric:tabular-nums}
 .orc-total{text-align:right;margin:10px 0 12px;font:italic 800 1.35rem/1 var(--f-ui)}
 @media (max-width:620px){.orc-item{grid-template-columns:1fr 1fr;padding-bottom:10px;border-bottom:1px solid var(--line)}.orc-prod{grid-column:1/-1}.orc-sub{text-align:left;padding:0}.orc-item>.btn{justify-self:end}}
+/* montador do orçamento */
+.orc-desc{display:grid;gap:2px;padding-bottom:6px}.orc-desc small{color:var(--muted)}
+.mont{margin:10px 0 14px;padding:12px;border:1px dashed color-mix(in srgb,var(--brand) 45%,transparent);border-radius:4px;background:var(--surface)}
+.mont-top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}.mont-top .inp{flex:1 1 200px;width:auto}
+.pk-cats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pk-cats .chip{border:1px solid var(--line);cursor:pointer}.pk-cats .chip.on{background:var(--brand);color:var(--on-brand,#fff);border-color:var(--brand)}
+.pk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;max-height:460px;overflow:auto;padding:2px}
+.pk-card{display:grid;gap:4px;align-content:start;text-align:left;padding:8px;border:1.5px solid var(--line);border-radius:4px;background:var(--paper,#fff);cursor:pointer;font:inherit;color:inherit}
+.pk-card:hover,.pk-card:focus-visible{border-color:var(--brand)}
+.pk-card .ph{display:block;aspect-ratio:1;background:#ECEBE6;border-radius:3px;overflow:hidden}.pk-card .ph img{width:100%;height:100%;object-fit:contain}
+.pk-card b{font-size:.88rem;line-height:1.2}.pk-card small{color:var(--muted);font-size:.78rem}.pk-pr{font-size:.82rem;font-weight:700;color:var(--brand)}
+.mont-sel{display:grid;grid-template-columns:180px 1fr;gap:16px}.mont-sel .ph{aspect-ratio:1;background:#ECEBE6;border-radius:4px;overflow:hidden}.mont-sel .ph img{width:100%;height:100%;object-fit:contain}
+.mont-sel h4{margin:0 0 8px;font:700 1.05rem/1.25 var(--f-ui)}.mont-sel .leg{margin:10px 0 6px;font-weight:600}
+.pk-ops{display:flex;flex-wrap:wrap;gap:8px}
+.pk-op{display:grid;gap:2px;text-align:left;min-width:150px;padding:9px 12px;border:1.5px solid var(--line);border-radius:4px;background:var(--paper,#fff);cursor:pointer;font:inherit;color:inherit}
+.pk-op small{color:var(--muted);font-size:.78rem}.pk-op span{font-weight:700;color:var(--brand)}
+.pk-op.sel{border-color:var(--brand);box-shadow:0 0 0 2px color-mix(in srgb,var(--brand) 35%,transparent);background:color-mix(in srgb,var(--brand) 8%,var(--paper,#fff))}
+.pk-fim{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}
+.pk-fim .qty{display:inline-flex;align-items:center;gap:10px}.pk-fim .qty button{width:36px;height:36px;border:1.5px solid var(--line);border-radius:3px;background:var(--surface);font-size:1.1rem;cursor:pointer}
+.pk-q{min-width:22px;text-align:center}
+@media (max-width:620px){.mont-sel{grid-template-columns:1fr}.mont-sel .ph{max-width:200px}}
+/* fotos com botão Remover */
+.photos .ph.ph-rm{width:120px;height:auto;display:grid;grid-template-rows:110px auto}
+.photos .ph.ph-rm img{height:110px;display:block;width:100%;object-fit:contain;position:static;aspect-ratio:auto}
+.photos .ph.ph-rm .rm{position:relative;z-index:1;width:auto;height:auto;border-radius:0;padding:5px 4px;background:var(--bad-bg,#fbe9e7);color:var(--bad,#b3261e);font-weight:700;font-size:.82rem;cursor:pointer;border-top:1px solid var(--line)}
+.photos .ph.ph-rm .rm:hover{background:var(--bad,#b3261e);color:#fff}
+.photos.gal-adm{gap:6px}
+.gfx{width:84px;display:grid;grid-template-rows:70px auto;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#ECEBE6}
+.gfx img{width:100%;height:70px;object-fit:contain;display:block}
+.gfx .rm{border:0;border-top:1px solid var(--line);padding:4px 2px;background:var(--bad-bg,#fbe9e7);color:var(--bad,#b3261e);font-weight:700;font-size:.78rem;cursor:pointer}
+.gfx .rm:hover{background:var(--bad,#b3261e);color:#fff}

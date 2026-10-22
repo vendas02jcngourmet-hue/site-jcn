@@ -35,13 +35,14 @@ function vGaleria(u) {
       ${g.fotos.length ? `<button class="gimg" data-act="gal-ver" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, g.fotos.length))}" aria-label="Ampliar ${esc(g.titulo)}"><img loading="lazy" src="${src(g.fotos[0])}" alt="${esc(g.titulo)}"></button>` : '<div class="gimg gvazio">Sem foto ainda</div>'}
       ${g.fotos.length > 1 ? `<div class="galmini">${g.fotos.slice(1).map((r, i) => `<button class="gimg" data-act="gal-ver" data-ref="${esc(r)}" data-nome="${esc(nomeArquivo(g.base, i + 1, g.fotos.length))}" aria-label="Ampliar outra foto de ${esc(g.titulo)}"><img loading="lazy" src="${src(r)}" alt=""></button>`).join('')}</div>` : ''}
       <div><b>${esc(g.titulo)}</b>${g.cods.length ? `<div class="note">${esc(g.cods.join(' · '))}</div>` : ''}</div>
+      ${u.papel === 'admin' && g.fotos.length ? `<div class="photos gal-adm" aria-label="Fotos de ${esc(g.titulo)}">${g.fotos.map((r, i) => `<div class="gfx"><img src="${src(r)}" alt=""><button class="rm" data-act="gal-rem-foto" data-id="${esc(g.id)}" data-ref="${esc(r)}" data-confirm="Confirmar" aria-label="Remover a foto ${i + 1} de ${esc(g.titulo)}">Remover</button></div>`).join('')}</div>` : ''}
       ${u.papel === 'admin' ? `<label tabindex="0" class="btn ghost sm">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="gal-foto" data-id="${esc(g.id)}"></label>` : ''}
       ${!g.fotos.length ? '' : g.fotos.length > 1 ? `<button class="btn sm" data-act="gal-baixar-todas" data-id="${esc(g.id)}">Baixar as ${g.fotos.length} fotos</button>`
         : `<button class="btn ghost sm" data-act="gal-baixar" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, 1))}">Baixar foto</button>`}
     </article>`).join('')}</div></section>`).join('')}
   ${site.length ? `<section class="galcat"><h2>Fotos do site</h2><div class="panel galprod"><div class="galtop"><div><b>Ambientes e outras linhas</b></div>
     <button class="btn sm" data-act="gal-baixar-site">Baixar todas (${site.length})</button></div>
-    <div class="galgrid">${site.map((r, i) => foto(r, 'jcn-gourmet-' + (i + 1), 'Foto do site JCN Gourmet')).join('')}</div></div></section>` : ''}`;
+    <div class="galgrid">${site.map((r, i) => foto(r, 'jcn-gourmet-' + (i + 1), 'Foto do site JCN Gourmet') .replace('</figure>', u.papel === 'admin' && (state.conteudo.galeria || []).includes(r) ? `<button class="btn danger sm" data-act="gal-rem-site" data-ref="${esc(r)}" data-confirm="Confirmar: remover do site">Remover do site</button></figure>` : '</figure>')).join('')}</div></div></section>` : ''}`;
 }
 async function baixarFoto(ref, nome) {
   const r = await fetch(src(ref)); if (!r.ok) throw new Error('foto');
@@ -63,6 +64,19 @@ Object.assign(acts, {
   'gal-baixar': async e => { try { await baixarFoto(e.dataset.ref, e.dataset.nome); } catch (x) { toast('Não foi possível baixar a foto. Tente de novo.'); } },
   'gal-baixar-todas': e => { const u = eu(); if (!u) return; const g = blocosDaGaleria(u).flatMap(b => b.grupos).find(x => x.id === e.dataset.id); if (g) baixarVarias(g.fotos.map((r, i) => [r, nomeArquivo(g.base, i, g.fotos.length)])); },
   'gal-baixar-site': () => { const s = [...new Set([...(state.conteudo.galeria || []), ...(state.conteudo.linhas || []).filter(l => l.ativo).flatMap(l => l.fotos || [])])]; baixarVarias(s.map((r, i) => [r, 'jcn-gourmet-' + (i + 1)])); }
+});
+Object.assign(acts, {
+  // administração: tira a foto do produto (nos fogões de duas grelhas, dos dois códigos)
+  'gal-rem-foto': e => {
+    if (eu().papel !== 'admin') return;
+    const p = prod(e.dataset.id), ref = e.dataset.ref; if (!p) return;
+    const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];
+    grupo.forEach(x => { x.fotos = x.fotos.filter(f => f !== ref); }); salvar('catalogo'); renderApp(); toast('Foto removida de ' + p.nome + '.');
+  },
+  'gal-rem-site': e => {
+    if (eu().papel !== 'admin') return;
+    state.conteudo.galeria = state.conteudo.galeria.filter(f => f !== e.dataset.ref); salvar('conteudo'); renderApp(); toast('Foto removida do site.');
+  }
 });
 Object.assign(uploads, {
   // administração: foto nova direto na galeria vai para o cadastro do produto (e aparece no site e para as lojas)

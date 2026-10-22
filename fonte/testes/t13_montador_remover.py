@@ -1,0 +1,37 @@
+# Orçamento com cliques (grelha obrigatória, forno opcional) e remover fotos nas galerias
+import sys; sys.path.insert(0, '/home/claude/real/testes')
+from base import *
+srv = subir()
+pid = lambda c: banco(f"select id from produtos where codigo = '{c}'")
+nf = lambda c: banco(f"select count(*) from fotos_produto f join produtos p on p.id = f.produto_id where p.codigo = '{c}'")
+try:
+  with sync_playwright() as p:
+    br = p.chromium.launch(); pg, errs = pagina(br); W = lambda ms=300: pg.wait_for_timeout(ms)
+    pg.goto(B); W(1200); entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026'); ir(pg, 'ligacoes'); pg.click('[data-act=lig-orc]'); W()
+    pg.click('#orcLig .pk-cats .chip:has-text("Fogões baixa pressão")'); W()
+    n = pg.locator('#orcLig .pk-card').count(); ok(n > 10 and 'grelhas' in pg.inner_text('#orcLig .pk-grid'), f'categoria com {n} fogões em cartões')
+    pg.fill('#orcLig [data-pk=busca]', 'FF011'); W(700); pg.click('#orcLig .pk-card >> nth=0'); W()
+    ok(pg.is_disabled('#orcLig [data-act=pk-add]') and pg.locator('#orcLig [data-act=pk-grelha]').count() == 2, 'fogão de duas grelhas: precisa escolher a grelha antes de adicionar')
+    pg.screenshot(path=R + '/testes/shots/t13_montador.png', full_page=True)
+    pg.click(f'#orcLig [data-act=pk-grelha][data-id="{pid("FF996")}"]'); W(); pg.click(f'#orcLig [data-act=pk-forno][data-id="{pid("FF163TV")}"]'); W()
+    pg.click('#orcLig [data-act=pk-qtd][data-d="1"]'); W(150); t = pg.inner_text('#orcLig [data-act=pk-add]'); ok('2.056,80' in t, 'grelha aço + forno, 2 unidades: ' + t)
+    pg.screenshot(path=R + '/testes/shots/t13_escolha.png', full_page=True)
+    pg.click('#orcLig [data-act=pk-add]'); W()
+    itens = pg.locator('#orcLig .orc-desc').all_inner_texts(); ok(len(itens) == 2 and 'FF996' in itens[0] and 'FF163TV' in itens[1] and pg.input_value('#orcLig [data-oi=quantidade][data-i="1"]') == '2', 'entram o fogão e o forno, cada um com o código: ' + ' / '.join(x.replace('\n', ' ') for x in itens))
+    ok('2.056,80' in pg.inner_text('#orcTotal-lig'), 'total certo')
+    pg.screenshot(path=R + '/testes/shots/t13_itens.png', full_page=True)
+    # remover foto na Galeria de fotos
+    ir(pg, 'galeria'); pg.fill('#galBusca', 'FG4FSD-AZU'); W(700); antes = nf('FG4FSD-AZU')
+    pg.click('.gal-adm [data-act=gal-rem-foto] >> nth=0'); W(150); pg.click('.gal-adm [data-act=gal-rem-foto] >> nth=0'); parado(pg, 900)
+    ok(int(nf('FG4FSD-AZU')) == int(antes) - 1, f'administração remove foto do produto pela galeria ({antes} → {nf("FG4FSD-AZU")})')
+    pg.fill('#galBusca', ''); W(700); ng = pg.locator('[data-act=gal-rem-site]').count()
+    pg.click('[data-act=gal-rem-site] >> nth=0'); W(150); pg.click('[data-act=gal-rem-site] >> nth=0'); parado(pg, 900)
+    ok(len(json.loads(banco("select valor->'galeria' from conteudo_site where chave='site'") or '[]')) == ng - 1, 'remove foto da galeria do site pela Galeria de fotos')
+    # remover na tela Site e galeria
+    ir(pg, 'conteudo'); n0 = pg.locator('.photos .ph-rm').count(); pg.click('.photos [data-act=gal-rem] >> nth=0'); W(150)
+    ok(pg.inner_text('.photos [data-act=gal-rem] >> nth=0') == 'Confirmar', 'pede confirmação antes de remover')
+    pg.click('.photos [data-act=gal-rem] >> nth=0'); parado(pg, 900); ok(pg.locator('.photos .ph-rm').count() == n0 - 1, 'Site e galeria: botão Remover tira a foto')
+    pg.screenshot(path=R + '/testes/shots/t13_site_galeria.png')
+    ok(not errs, 'sem erros: ' + ' | '.join(errs)[:200])
+finally: srv.terminate()
+print('FALHAS:', F if F else 'nenhuma')
