@@ -572,3 +572,9 @@ fieldset.res legend{font-weight:600;font-size:.9rem;margin-bottom:6px;padding:0}
 .gfx img{width:100%;height:70px;object-fit:contain;display:block}
 .gfx .rm{border:0;border-top:1px solid var(--line);padding:4px 2px;background:var(--bad-bg,#fbe9e7);color:var(--bad,#b3261e);font-weight:700;font-size:.78rem;cursor:pointer}
 .gfx .rm:hover{background:var(--bad,#b3261e);color:#fff}
+.ged{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin:12px 0}
+.ged-f{margin:0;display:grid;gap:6px;align-content:start}
+.ged-img{aspect-ratio:1;border:1px solid var(--line);border-radius:4px;background:#ECEBE6;overflow:hidden}
+.ged-img img{width:100%;height:100%;object-fit:contain;display:block}
+.ged-f.prin .ged-img{border:2px solid var(--brand)}
+.ged-f .chip{justify-self:start}

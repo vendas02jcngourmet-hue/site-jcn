@@ -438,6 +438,7 @@ function renderDrawer() {
     <div class="foot"><button class="btn" data-act="salvar-minha-senha">Trocar senha</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
   if (dr.tipo === 'pedido-site') { const p = (state.daqui || []).find(x => x.id === dr.id); if (!p) return fecharDrawer(); html = dPedidoSite(p, dr); }
   if (dr.tipo === 'meus-site') html = dMeusSite(dr);
+  if (dr.tipo === 'gal-editar') { html = u ? dGalEditar(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'prospect') { html = u ? dProspect(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'orcamento') { html = u ? dOrcamento(dr, u) : ''; if (!html) return fecharDrawer(); }
   const sc = $('.drawer') ? $('.drawer').scrollTop : 0;

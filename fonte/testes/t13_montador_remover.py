@@ -22,9 +22,14 @@ try:
     pg.screenshot(path=R + '/testes/shots/t13_itens.png', full_page=True)
     # remover foto na Galeria de fotos
     ir(pg, 'galeria'); pg.fill('#galBusca', 'FG4FSD-AZU'); W(700); antes = nf('FG4FSD-AZU')
-    pg.click('.gal-adm [data-act=gal-rem-foto] >> nth=0'); W(150); pg.click('.gal-adm [data-act=gal-rem-foto] >> nth=0'); parado(pg, 900)
+    ok(pg.locator('.galcard [data-act=gal-editar]').count() == 1, 'cartão tem o botão Editar')
+    pg.click('.galcard [data-act=gal-editar]'); W(); ok('Principal' in pg.inner_text('.drawer'), 'Editar abre as fotos do produto')
+    pg.set_input_files('.drawer [data-file=gal-foto]', FX + 'comprovante.png'); parado(pg, 1500); ok(pg.locator('.drawer .ged-f').count() == int(antes) + 1, 'adicionar foto pela edição')
+    pg.click('.drawer [data-act=ged-principal] >> nth=0'); parado(pg, 900); ok(banco("select caminho from fotos_produto f join produtos p on p.id=f.produto_id where p.codigo='FG4FSD-AZU' order by f.ordem limit 1").startswith('produtos/'), 'trocar a foto principal')
+    pg.screenshot(path=R + '/testes/shots/t14_editar.png')
+    antes = nf('FG4FSD-AZU'); pg.click('.drawer [data-act=gal-rem-foto] >> nth=0'); W(150); pg.click('.drawer [data-act=gal-rem-foto] >> nth=0'); parado(pg, 900)
     ok(int(nf('FG4FSD-AZU')) == int(antes) - 1, f'administração remove foto do produto pela galeria ({antes} → {nf("FG4FSD-AZU")})')
-    pg.fill('#galBusca', ''); W(700); ng = pg.locator('[data-act=gal-rem-site]').count()
+    pg.click('.drawer .x'); W(); pg.fill('#galBusca', ''); W(700); ng = pg.locator('[data-act=gal-rem-site]').count()
     pg.click('[data-act=gal-rem-site] >> nth=0'); W(150); pg.click('[data-act=gal-rem-site] >> nth=0'); parado(pg, 900)
     ok(len(json.loads(banco("select valor->'galeria' from conteudo_site where chave='site'") or '[]')) == ng - 1, 'remove foto da galeria do site pela Galeria de fotos')
     # remover na tela Site e galeria

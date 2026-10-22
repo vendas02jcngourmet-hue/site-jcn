@@ -35,8 +35,7 @@ function vGaleria(u) {
       ${g.fotos.length ? `<button class="gimg" data-act="gal-ver" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, g.fotos.length))}" aria-label="Ampliar ${esc(g.titulo)}"><img loading="lazy" src="${src(g.fotos[0])}" alt="${esc(g.titulo)}"></button>` : '<div class="gimg gvazio">Sem foto ainda</div>'}
       ${g.fotos.length > 1 ? `<div class="galmini">${g.fotos.slice(1).map((r, i) => `<button class="gimg" data-act="gal-ver" data-ref="${esc(r)}" data-nome="${esc(nomeArquivo(g.base, i + 1, g.fotos.length))}" aria-label="Ampliar outra foto de ${esc(g.titulo)}"><img loading="lazy" src="${src(r)}" alt=""></button>`).join('')}</div>` : ''}
       <div><b>${esc(g.titulo)}</b>${g.cods.length ? `<div class="note">${esc(g.cods.join(' · '))}</div>` : ''}</div>
-      ${u.papel === 'admin' && g.fotos.length ? `<div class="photos gal-adm" aria-label="Fotos de ${esc(g.titulo)}">${g.fotos.map((r, i) => `<div class="gfx"><img src="${src(r)}" alt=""><button class="rm" data-act="gal-rem-foto" data-id="${esc(g.id)}" data-ref="${esc(r)}" data-confirm="Confirmar" aria-label="Remover a foto ${i + 1} de ${esc(g.titulo)}">Remover</button></div>`).join('')}</div>` : ''}
-      ${u.papel === 'admin' ? `<label tabindex="0" class="btn ghost sm">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="gal-foto" data-id="${esc(g.id)}"></label>` : ''}
+      ${u.papel === 'admin' ? `<button class="btn ghost sm" data-act="gal-editar" data-id="${esc(g.id)}">Editar</button>` : ''}
       ${!g.fotos.length ? '' : g.fotos.length > 1 ? `<button class="btn sm" data-act="gal-baixar-todas" data-id="${esc(g.id)}">Baixar as ${g.fotos.length} fotos</button>`
         : `<button class="btn ghost sm" data-act="gal-baixar" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, 1))}">Baixar foto</button>`}
     </article>`).join('')}</div></section>`).join('')}
@@ -71,11 +70,31 @@ Object.assign(acts, {
     if (eu().papel !== 'admin') return;
     const p = prod(e.dataset.id), ref = e.dataset.ref; if (!p) return;
     const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];
-    grupo.forEach(x => { x.fotos = x.fotos.filter(f => f !== ref); }); salvar('catalogo'); renderApp(); toast('Foto removida de ' + p.nome + '.');
+    grupo.forEach(x => { x.fotos = x.fotos.filter(f => f !== ref); }); salvar('catalogo'); refresh(); toast('Foto removida de ' + p.nome + '.');
   },
   'gal-rem-site': e => {
     if (eu().papel !== 'admin') return;
     state.conteudo.galeria = state.conteudo.galeria.filter(f => f !== e.dataset.ref); salvar('conteudo'); renderApp(); toast('Foto removida do site.');
+  }
+});
+// administração: gaveta para editar as fotos do produto (tirar, escolher a principal e colocar novas)
+function dGalEditar(dr, u) {
+  const p = prod(dr.id); if (!p || u.papel !== 'admin') return '';
+  const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p], cods = grupo.map(x => x.codigo).filter(Boolean);
+  return `<h2 class="dt">Fotos de ${esc(p.cat === 'colors' ? `${p.nome} (${p.cor})` : p.nome)}</h2>
+  <p class="note">${esc(cods.join(' · '))}${grupo.length > 1 ? ' · as mudanças valem para os dois códigos' : ''}. A primeira foto é a que aparece no site e nas listas.</p>
+  ${p.fotos.length ? `<div class="ged">${p.fotos.map((r, i) => `<figure class="ged-f${i === 0 ? ' prin' : ''}"><div class="ged-img"><img src="${src(r)}" alt="Foto ${i + 1}"></div>
+    ${i === 0 ? '<span class="chip ok">Principal</span>' : `<button class="btn ghost sm" data-act="ged-principal" data-ref="${esc(r)}">Usar como principal</button>`}
+    <button class="btn danger sm" data-act="gal-rem-foto" data-id="${esc(p.id)}" data-ref="${esc(r)}" data-confirm="Confirmar remover">Remover</button></figure>`).join('')}</div>`
+    : '<p class="note">Este produto ainda não tem foto.</p>'}
+  <div class="foot"><label tabindex="0" class="btn">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="gal-foto" data-id="${esc(p.id)}"></label><button class="btn ghost" data-act="fechar">Fechar</button></div>`;
+}
+Object.assign(acts, {
+  'gal-editar': e => { if (eu().papel !== 'admin') return; ui.drawer = { tipo: 'gal-editar', id: e.dataset.id }; renderDrawer(); },
+  'ged-principal': e => {
+    if (eu().papel !== 'admin' || !ui.drawer) return; const p = prod(ui.drawer.id), ref = e.dataset.ref; if (!p) return;
+    const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];
+    grupo.forEach(x => { if (x.fotos.includes(ref)) x.fotos = [ref, ...x.fotos.filter(f => f !== ref)]; }); salvar('catalogo'); refresh(); toast('Foto principal trocada.');
   }
 });
 Object.assign(uploads, {
@@ -87,7 +106,7 @@ Object.assign(uploads, {
     await quandoLivre();
     const caminho = await Files.publicar(m.id, 'produtos/' + p.id);                 // sobe uma vez só
     const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];   // fogão de duas grelhas: a foto vale para os dois códigos
-    grupo.forEach(x => x.fotos.push('pub:' + caminho)); salvar('catalogo'); renderApp(); toast('Foto adicionada a ' + p.nome + '.');
+    grupo.forEach(x => x.fotos.push('pub:' + caminho)); salvar('catalogo'); refresh(); toast('Foto adicionada a ' + p.nome + '.');
   }
 });
 Object.assign(chgs, { 'gal-cat': e => { ui.galCat = e.value; renderApp(); } });
