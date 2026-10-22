@@ -1766,10 +1766,13 @@ function blocosDaGaleria(u) {
   const ps = produtosDaGaleria(u).filter(p => !cf || p.cat === cf), bate = p => (p.nome + ' ' + (p.codigo || '') + ' ' + (p.cor || '')).toLowerCase().includes(q);
   return state.catalogo.categorias.map(c => {
     const grupos = modelos(ps.filter(p => p.cat === c.id)).filter(g => !q || g.some(bate)).map(g => {
-      const fotos = [...new Set(g.flatMap(p => p.fotos))];
-      const p = g[0], cods = g.map(x => x.codigo).filter(Boolean);
+      g = g.slice().sort((a, b) => (a.grelha === 'ferro' ? 0 : 1) - (b.grelha === 'ferro' ? 0 : 1));
+      const p = g[0], cods = g.map(x => x.codigo).filter(Boolean), curto = c.id === 'colors' ? p.nome : p.nome.split(',')[0];
       const titulo = c.id === 'colors' ? `${p.nome} (${p.cor})` : p.nome;
-      return { id: p.id, titulo, cods, fotos, base: (cods[0] || '') + '-' + (c.id === 'colors' ? p.nome : p.nome.split(',')[0]) };
+      // fogão de duas grelhas: cada grelha tem as fotos dela, para ver e baixar separado
+      const vars = g.length > 1 && g.every(x => x.grelha) ? g.map(x => ({ p: x, rot: 'Grelha ' + GRELHAS[x.grelha].toLowerCase(), fotos: x.fotos.slice(), base: (x.codigo || '') + '-' + curto + '-grelha-' + GRELHAS[x.grelha] })) : null;
+      const sel = vars ? (vars.find(v => v.p.id === (ui.galGr || {})[p.id]) || vars[0]) : null;
+      return { id: p.id, titulo, cods, vars, sel, fotos: sel ? sel.fotos : [...new Set(g.flatMap(x => x.fotos))], base: sel ? sel.base : (cods[0] || '') + '-' + curto };
     });
     return { c, grupos };
   }).filter(b => b.grupos.length);
@@ -1789,8 +1792,10 @@ function vGaleria(u) {
       ${g.fotos.length ? `<button class="gimg" data-act="gal-ver" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, g.fotos.length))}" aria-label="Ampliar ${esc(g.titulo)}"><img loading="lazy" src="${src(g.fotos[0])}" alt="${esc(g.titulo)}"></button>` : '<div class="gimg gvazio">Sem foto ainda</div>'}
       ${g.fotos.length > 1 ? `<div class="galmini">${g.fotos.slice(1).map((r, i) => `<button class="gimg" data-act="gal-ver" data-ref="${esc(r)}" data-nome="${esc(nomeArquivo(g.base, i + 1, g.fotos.length))}" aria-label="Ampliar outra foto de ${esc(g.titulo)}"><img loading="lazy" src="${src(r)}" alt=""></button>`).join('')}</div>` : ''}
       <div><b>${esc(g.titulo)}</b>${g.cods.length ? `<div class="note">${esc(g.cods.join(' · '))}</div>` : ''}</div>
-      ${u.papel === 'admin' ? `<button class="btn ghost sm" data-act="gal-editar" data-id="${esc(g.id)}">Editar</button>` : ''}
-      ${!g.fotos.length ? '' : g.fotos.length > 1 ? `<button class="btn sm" data-act="gal-baixar-todas" data-id="${esc(g.id)}">Baixar as ${g.fotos.length} fotos</button>`
+      ${g.vars ? `<div class="gr-tabs" role="tablist" aria-label="Grelha">${g.vars.map(v => `<button role="tab" aria-selected="${v === g.sel}" data-act="gal-gr" data-g="${esc(g.id)}" data-p="${esc(v.p.id)}">${esc(GRELHAS[v.p.grelha])}</button>`).join('')}</div>` : ''}
+      ${u.papel === 'admin' ? `<button class="btn ghost sm" data-act="gal-editar" data-id="${esc(g.vars ? g.sel.p.id : g.id)}">Editar${g.vars ? ' · ' + esc(GRELHAS[g.sel.p.grelha].toLowerCase()) : ''}</button>` : ''}
+      ${g.vars ? g.vars.map(v => `<button class="btn ${v === g.sel ? '' : 'ghost '}sm" data-act="gal-baixar-prod" data-id="${esc(v.p.id)}" ${v.fotos.length ? '' : 'disabled'}>Baixar · ${esc(v.rot.toLowerCase().replace('grelha ', 'grelha '))} (${v.fotos.length})</button>`).join('')
+      : !g.fotos.length ? '' : g.fotos.length > 1 ? `<button class="btn sm" data-act="gal-baixar-todas" data-id="${esc(g.id)}">Baixar as ${g.fotos.length} fotos</button>`
         : `<button class="btn ghost sm" data-act="gal-baixar" data-ref="${esc(g.fotos[0])}" data-nome="${esc(nomeArquivo(g.base, 0, 1))}">Baixar foto</button>`}
     </article>`).join('')}</div></section>`).join('')}
   ${site.length ? `<section class="galcat"><h2>Fotos do site</h2><div class="panel galprod"><div class="galtop"><div><b>Ambientes e outras linhas</b></div>
@@ -1808,6 +1813,11 @@ async function baixarVarias(lista) {
   catch (e) { toast('Não foi possível baixar uma das fotos. Tente de novo.'); }
 }
 Object.assign(acts, {
+  'gal-gr': e => { ui.galGr = ui.galGr || {}; ui.galGr[e.dataset.g] = e.dataset.p; renderApp(); },
+  'gal-baixar-prod': e => { const u = eu(); if (!u) return; const v = blocosDaGaleria(u).flatMap(b => b.grupos).flatMap(g => g.vars || []).find(x => x.p.id === e.dataset.id); if (!v || !v.fotos.length) return;
+    if (v.fotos.length === 1) baixarFoto(v.fotos[0], nomeArquivo(v.base, 0, 1)).catch(() => toast('Não foi possível baixar a foto. Tente de novo.')); else baixarVarias(v.fotos.map((r, i) => [r, nomeArquivo(v.base, i, v.fotos.length)])); }
+});
+Object.assign(acts, {
   'gal-ver': e => {
     const v = document.createElement('div'); v.className = 'viewer';
     v.innerHTML = `<div class="vb"><b>${esc(e.dataset.nome)}</b><button class="btn sm" data-act="gal-baixar" data-ref="${esc(e.dataset.ref)}" data-nome="${esc(e.dataset.nome)}">Baixar</button><button class="btn ghost sm" style="color:#fff;border-color:#fff" data-act="fechar-viewer">Fechar</button></div>
@@ -1823,8 +1833,7 @@ Object.assign(acts, {
   'gal-rem-foto': e => {
     if (eu().papel !== 'admin') return;
     const p = prod(e.dataset.id), ref = e.dataset.ref; if (!p) return;
-    const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];
-    grupo.forEach(x => { x.fotos = x.fotos.filter(f => f !== ref); }); salvar('catalogo'); refresh(); toast('Foto removida de ' + p.nome + '.');
+    p.fotos = p.fotos.filter(f => f !== ref); salvar('catalogo'); refresh(); toast('Foto removida de ' + p.nome + '.');
   },
   'gal-rem-site': e => {
     if (eu().papel !== 'admin') return;
@@ -1834,9 +1843,11 @@ Object.assign(acts, {
 // administração: gaveta para editar as fotos do produto (tirar, escolher a principal e colocar novas)
 function dGalEditar(dr, u) {
   const p = prod(dr.id); if (!p || u.papel !== 'admin') return '';
-  const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p], cods = grupo.map(x => x.codigo).filter(Boolean);
-  return `<h2 class="dt">Fotos de ${esc(p.cat === 'colors' ? `${p.nome} (${p.cor})` : p.nome)}</h2>
-  <p class="note">${esc(cods.join(' · '))}${grupo.length > 1 ? ' · as mudanças valem para os dois códigos' : ''}. A primeira foto é a que aparece no site e nas listas.</p>
+  const grupo = (p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p]).sort((a, b) => (a.grelha === 'ferro' ? 0 : 1) - (b.grelha === 'ferro' ? 0 : 1));
+  const tabs = grupo.length > 1 && grupo.every(x => x.grelha);
+  return `<h2 class="dt">Fotos de ${esc(p.cat === 'colors' ? `${p.nome} (${p.cor})` : p.nome.split(', grelha')[0])}</h2>
+  ${tabs ? `<div class="tabs gr-tabs-d" role="tablist">${grupo.map(x => `<button role="tab" aria-selected="${x.id === p.id}" data-act="ged-gr" data-id="${esc(x.id)}">Grelha ${esc(GRELHAS[x.grelha].toLowerCase())} · ${esc(x.codigo || '')} (${x.fotos.length})</button>`).join('')}</div>` : ''}
+  <p class="note">${esc(p.codigo || '')}${tabs ? ` · estas fotos são só da grelha ${esc(GRELHAS[p.grelha].toLowerCase())}` : ''}. A primeira foto é a que aparece no site e nas listas.</p>
   ${p.fotos.length ? `<div class="ged">${p.fotos.map((r, i) => `<figure class="ged-f${i === 0 ? ' prin' : ''}"><div class="ged-img"><img src="${src(r)}" alt="Foto ${i + 1}"></div>
     ${i === 0 ? '<span class="chip ok">Principal</span>' : `<button class="btn ghost sm" data-act="ged-principal" data-ref="${esc(r)}">Usar como principal</button>`}
     <button class="btn danger sm" data-act="gal-rem-foto" data-id="${esc(p.id)}" data-ref="${esc(r)}" data-confirm="Confirmar remover">Remover</button></figure>`).join('')}</div>`
@@ -1844,11 +1855,11 @@ function dGalEditar(dr, u) {
   <div class="foot"><label tabindex="0" class="btn">Adicionar fotos<input type="file" accept="image/*" multiple hidden data-file="gal-foto" data-id="${esc(p.id)}"></label><button class="btn ghost" data-act="fechar">Fechar</button></div>`;
 }
 Object.assign(acts, {
+  'ged-gr': e => { if (!ui.drawer) return; ui.drawer.id = e.dataset.id; ui.galGr = ui.galGr || {}; const p = prod(e.dataset.id), g0 = p && p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo).sort((a, b) => (a.grelha === 'ferro' ? 0 : 1) - (b.grelha === 'ferro' ? 0 : 1))[0] : null; if (g0) ui.galGr[g0.id] = p.id; refresh(); },
   'gal-editar': e => { if (eu().papel !== 'admin') return; ui.drawer = { tipo: 'gal-editar', id: e.dataset.id }; renderDrawer(); },
   'ged-principal': e => {
     if (eu().papel !== 'admin' || !ui.drawer) return; const p = prod(ui.drawer.id), ref = e.dataset.ref; if (!p) return;
-    const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];
-    grupo.forEach(x => { if (x.fotos.includes(ref)) x.fotos = [ref, ...x.fotos.filter(f => f !== ref)]; }); salvar('catalogo'); refresh(); toast('Foto principal trocada.');
+    p.fotos = [ref, ...p.fotos.filter(f => f !== ref)]; salvar('catalogo'); refresh(); toast('Foto principal trocada.');
   }
 });
 Object.assign(uploads, {
@@ -1859,8 +1870,7 @@ Object.assign(uploads, {
     const m = await Files.put(f, { imagem: true });
     await quandoLivre();
     const caminho = await Files.publicar(m.id, 'produtos/' + p.id);                 // sobe uma vez só
-    const grupo = p.grupo ? state.catalogo.produtos.filter(x => x.grupo === p.grupo) : [p];   // fogão de duas grelhas: a foto vale para os dois códigos
-    grupo.forEach(x => x.fotos.push('pub:' + caminho)); salvar('catalogo'); refresh(); toast('Foto adicionada a ' + p.nome + '.');
+    p.fotos.push('pub:' + caminho); salvar('catalogo');       // fogão de duas grelhas: a foto entra só na grelha escolhida refresh(); toast('Foto adicionada a ' + p.nome + '.');
   }
 });
 Object.assign(chgs, { 'gal-cat': e => { ui.galCat = e.value; renderApp(); } });
