@@ -423,7 +423,7 @@ const NUCLEO = {
     return antigo.id;
   },
   async salvarCand(id, campos) { const r = await SB.upd('candidaturas', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar esta candidatura.'); await carregarRH(); },
-  async apagarCand(c) { await SB.del('candidaturas', { id: c.id }); if (c.curriculo_caminho) { try { await SB.apagar('rh', c.curriculo_caminho); } catch (e) { } } await carregarRH(); },
+  async apagarCand(c) { await SB.del('candidaturas', { id: c.id }); for (const k of new Set([c.curriculo_caminho, ...(Array.isArray(c.arquivos) ? c.arquivos.map(x => x && x.caminho) : [])].filter(Boolean))) { try { await SB.apagar('rh', k); } catch (e) { } } await carregarRH(); },
   async agendarReuniao(r, c) {
     const x = await SB.ins('reunioes', [{ ...r, criado_por: SB.id }]);
     if (['novo', 'em_analise'].includes(c.status)) { try { await SB.upd('candidaturas', { id: c.id }, { status: 'entrevista' }); } catch (e) { } }

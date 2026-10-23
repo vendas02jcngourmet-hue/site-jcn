@@ -623,3 +623,7 @@ fieldset.res legend{font-weight:600;font-size:.9rem;margin-bottom:6px;padding:0}
 .tg-ck{display:inline-flex;margin-right:10px;font-weight:500}
 .tg-lista{margin:0;padding-left:18px}.tg-lista li{margin:4px 0}
 .bad-t{color:var(--bad)}
+
+.chip.tg{background:#e3f2fd;color:#0b5aa2}
+.arqs{list-style:none;padding:0;margin:6px 0 12px;display:grid;gap:6px}.arqs li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.arqs li>span{flex:1;min-width:10rem}
+.cand-dados{margin:12px 0}.cand-dados summary{cursor:pointer}

@@ -2233,15 +2233,15 @@ function filtrarCands() {
   const f = ui.rhF || (ui.rhF = { busca: '', status: '', area: '', uf: '', per: '', novos: false }), q = f.busca.trim().toLowerCase(), qd = soDig(f.busca);
   const lim = f.per ? somaDias(hojeISO(), -(+f.per) + 1) : '';
   return rh().cands.filter(c => (!f.status || c.status === f.status) && (!f.area || c.area === f.area) && (!f.uf || c.uf === f.uf) && (!f.novos || !c.visto_em) && (!lim || diaLocal(c.criado_em) >= lim)
-    && (!q || (c.nome + ' ' + c.email + ' ' + c.cidade + ' ' + (c.cargo || '') + ' ' + (c.experiencia || '')).toLowerCase().includes(q) || (qd.length >= 4 && c.telefone.includes(qd))));
+    && (!q || [c.nome, c.email, c.cidade, c.cargo, c.experiencia, c.mensagem].join(' ').toLowerCase().includes(q) || (qd.length >= 4 && (c.telefone || '').includes(qd))));
 }
 const estrelas = n => n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '';
 function vRH(u) {
   const f = ui.rhF || (ui.rhF = { busca: '', status: '', area: '', uf: '', per: '', novos: false }), lista = filtrarCands(), todos = rh().cands;
-  const areas = [...new Set(todos.map(c => c.area))].sort(), ufs = [...new Set(todos.map(c => c.uf))].sort();
+  const areas = [...new Set(todos.map(c => c.area))].sort(), ufs = [...new Set(todos.map(c => c.uf).filter(Boolean))].sort();
   const sel = (k, rot, ops) => `<select class="inp" style="width:auto" data-chg="rh-f" data-k="${k}" aria-label="${rot}"><option value="">${rot}</option>${ops.map(([v, t]) => `<option value="${esc(v)}" ${f[k] === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`;
   const conta = k => todos.filter(c => c.status === k).length;
-  return `<h1>Currículos</h1><p class="sub">Candidaturas que chegam pelo "Trabalhe conosco" do site. Abra para ler, ver o currículo, avaliar e agendar a entrevista.</p>
+  return `<h1>Currículos</h1><p class="sub">Candidaturas do "Trabalhe conosco" do site e as fotos de currículo mandadas no grupo do RH no Telegram. Abra para ler, ver o currículo, avaliar e agendar a entrevista.</p>
   ${avisoRH()}${painelAvisos()}
   <div class="tiles">${[['novo', 'Novos'], ['em_analise', 'Em análise'], ['entrevista', 'Entrevista'], ['aprovado', 'Aprovados'], ['banco_talentos', 'Banco de talentos']].map(([k, t]) =>
     `<button class="tile tile-bt${f.status === k ? ' on' : ''}" data-act="rh-st" data-k="${k}"><span class="t-rot">${t}</span><b class="t-val">${conta(k)}</b></button>`).join('')}</div>
@@ -2254,22 +2254,30 @@ function vRH(u) {
   ${lista.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Recebido</th><th>Candidato</th><th>Área</th><th>Cidade</th><th>Situação</th><th>Avaliação</th><th>Reunião</th></tr></thead><tbody>
     ${lista.map(c => { const r = reunioesDe(c.id).filter(x => x.status === 'agendada' && new Date(x.inicio) > Date.now() - 3600000)[0]; return `<tr class="${c.visto_em ? '' : 'nao-lido'}">
       <td>${dataBR(diaLocal(c.criado_em))}</td>
-      <td><button class="linkbtn" data-act="abrir-cand" data-id="${esc(c.id)}"><b>${esc(c.nome)}</b></button> ${c.visto_em ? '' : '<span class="chip info">Novo</span>'}<div class="note">${esc(telFmt(c.telefone))} · ${esc(c.email)}</div></td>
-      <td>${esc(c.area)}${c.cargo ? `<div class="note">${esc(c.cargo)}</div>` : ''}</td><td>${esc(c.cidade)}/${esc(c.uf)}</td>
+      <td><button class="linkbtn" data-act="abrir-cand" data-id="${esc(c.id)}"><b>${esc(c.nome)}</b></button> ${c.visto_em ? '' : '<span class="chip info">Novo</span>'}${c.origem === 'telegram' ? ' <span class="chip tg">Telegram</span>' : ''}<div class="note">${[telFmt(c.telefone || ''), c.email].filter(Boolean).map(esc).join(' · ') || 'Dados a completar'}</div></td>
+      <td>${esc(c.area)}${c.cargo ? `<div class="note">${esc(c.cargo)}</div>` : ''}</td><td>${c.cidade ? esc(c.cidade + (c.uf ? '/' + c.uf : '')) : '—'}</td>
       <td>${chip(ST_CAND[c.status])}</td><td class="estr">${estrelas(c.avaliacao)}</td><td>${r ? dtHora(r.inicio) : '—'}</td></tr>`; }).join('')}</tbody></table></div>`
-    : `<div class="panel"><p class="note" style="margin:0">${todos.length ? 'Nenhuma candidatura com esses filtros.' : 'Nenhum currículo recebido ainda. Eles chegam pelo formulário "Trabalhe conosco" da página inicial.'}</p></div>`}`;
+    : `<div class="panel"><p class="note" style="margin:0">${todos.length ? 'Nenhuma candidatura com esses filtros.' : 'Nenhum currículo recebido ainda. Eles chegam pelo formulário "Trabalhe conosco" da página inicial e pelas fotos mandadas no grupo do RH no Telegram.'}</p></div>`}`;
 }
 function dCand(dr, u) {
   const c = candDe(dr.id); if (!c) return '';
-  const d = dr.draft || (dr.draft = { status: c.status, avaliacao: c.avaliacao || 0, notas: c.notas || '' });
+  const d = dr.draft || (dr.draft = { status: c.status, avaliacao: c.avaliacao || 0, notas: c.notas || '' }), dd = dr.dados || (dr.dados = { nome: c.nome || '', telefone: telFmt(c.telefone || ''), email: c.email || '', cidade: c.cidade || '', uf: c.uf || '', area: c.area || '', cargo: c.cargo || '' });
+  const arqs = arquivosDe(c), falta = !c.telefone || !c.cidade || c.area === 'A definir';
   const rs = reunioesDe(c.id).slice().sort((a, b) => a.inicio < b.inicio ? 1 : -1), ag = dr.ag || (dr.ag = { data: somaDias(hojeISO(), 1), hora: '09:00', duracao: 30, link: '', obs: '' });
-  const info = [['E-mail', `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`], ['WhatsApp', `<a href="https://wa.me/55${esc(c.telefone)}" target="_blank" rel="noopener">${esc(telFmt(c.telefone))}</a>`],
-    ['Cidade', esc(c.cidade + '/' + c.uf)], ['Nascimento', c.nascimento ? dataBR(c.nascimento) : ''], ['Área', esc(c.area)], ['Cargo pretendido', esc(c.cargo || '')], ['Escolaridade', esc(c.escolaridade || '')],
+  const info = [['E-mail', c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : ''], ['WhatsApp', c.telefone ? `<a href="https://wa.me/55${esc(c.telefone)}" target="_blank" rel="noopener">${esc(telFmt(c.telefone))}</a>` : ''],
+    ['Cidade', c.cidade ? esc(c.cidade + (c.uf ? '/' + c.uf : '')) : ''], ['Nascimento', c.nascimento ? dataBR(c.nascimento) : ''], ['Área', esc(c.area)], ['Cargo pretendido', esc(c.cargo || '')], ['Escolaridade', esc(c.escolaridade || '')],
     ['Disponibilidade', esc(c.disponibilidade || '')], ['Pretensão salarial', esc(c.pretensao || '')], ['LinkedIn / portfólio', c.linkedin ? `<a href="${esc(/^https?:\/\//.test(c.linkedin) ? c.linkedin : 'https://' + c.linkedin)}" target="_blank" rel="noopener nofollow">${esc(c.linkedin)}</a>` : '']].filter(x => x[1]);
-  return `<h2 class="dt">${esc(c.nome)}</h2><p class="note">${chip(ST_CAND[c.status])} · recebido em ${dtHora(c.criado_em)}</p>
+  return `<h2 class="dt">${esc(c.nome)}</h2><p class="note">${chip(ST_CAND[c.status])} · recebido em ${dtHora(c.criado_em)}${c.origem === 'telegram' ? ' · <span class="chip tg">pelo Telegram</span>' : ''}</p>
   <dl class="cand-dl">${info.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
   ${c.experiencia ? `<h3>Experiência</h3><p class="pre">${esc(c.experiencia)}</p>` : ''}${c.mensagem ? `<h3>Mensagem</h3><p class="pre">${esc(c.mensagem)}</p>` : ''}
-  <h3>Currículo</h3>${c.curriculo_caminho ? `<div class="bar"><button class="btn sm" data-act="cv-ver" data-id="${esc(c.id)}">Ver currículo</button><button class="btn ghost sm" data-act="cv-baixar" data-id="${esc(c.id)}">Baixar</button><span class="note">${esc(c.curriculo_nome || '')}</span></div>` : '<p class="note">O candidato não chegou a enviar o arquivo.</p>'}
+  <h3>Currículo${arqs.length > 1 ? ` <span class="note">(${arqs.length} páginas)</span>` : ''}</h3>${arqs.length ? `<ul class="arqs">${arqs.map((a, i) => `<li><span>${arqs.length > 1 ? `<b>Página ${i + 1}</b> · ` : ''}<span class="note">${esc(a.nome || 'currículo')}</span></span><button class="btn sm" data-act="cv-ver" data-id="${esc(c.id)}" data-i="${i}">Ver</button><button class="btn ghost sm" data-act="cv-baixar" data-id="${esc(c.id)}" data-i="${i}">Baixar</button></li>`).join('')}</ul>` : '<p class="note">O candidato não chegou a enviar o arquivo.</p>'}
+  <details class="panel cand-dados" ${falta ? 'open' : ''}><summary><b>${falta ? 'Completar os dados do candidato' : 'Corrigir os dados do candidato'}</b>${falta ? ' <span class="chip warn">faltam dados</span>' : ''}</summary>
+    <div class="grid2" style="margin-top:10px"><label class="field"><span>Nome completo</span><input data-cdd="nome" value="${esc(dd.nome)}" maxlength="160"></label><label class="field"><span>WhatsApp com DDD</span><input data-cdd="telefone" value="${esc(dd.telefone)}" inputmode="tel" placeholder="(17) 99999-9999"></label>
+      <label class="field"><span>E-mail</span><input data-cdd="email" type="email" value="${esc(dd.email)}"></label><label class="field"><span>Área</span><select data-cdd="area">${[...new Set(['A definir', ...AREAS_RH, dd.area].filter(Boolean))].map(a => `<option ${a === dd.area ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select></label>
+      <label class="field"><span>Cidade</span><input data-cdd="cidade" value="${esc(dd.cidade)}" maxlength="80"></label><label class="field"><span>Estado (UF)</span><input data-cdd="uf" value="${esc(dd.uf)}" maxlength="2" style="text-transform:uppercase"></label>
+      <label class="field"><span>Cargo pretendido</span><input data-cdd="cargo" value="${esc(dd.cargo)}" maxlength="120"></label></div>
+    <p class="err" role="alert" ${dr.erroDados ? '' : 'hidden'}>${esc(dr.erroDados || '')}</p>
+    <div class="bar" style="margin-top:10px"><button class="btn" data-act="cand-dados">Salvar dados</button></div></details>
   <h3>Avaliação do RH</h3>
   <div class="grid2"><label class="field"><span>Situação</span><select data-cd="status">${Object.entries(ST_CAND).map(([k, [t]]) => `<option value="${k}" ${k === d.status ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
     <div class="field"><span>Nota</span><div class="estrelas" role="radiogroup" aria-label="Nota de 1 a 5">${[1, 2, 3, 4, 5].map(n => `<button role="radio" aria-checked="${d.avaliacao === n}" data-act="cd-nota" data-n="${n}" aria-label="${n} de 5">${n <= d.avaliacao ? '★' : '☆'}</button>`).join('')}</div></div></div>
@@ -2336,7 +2344,9 @@ function vEquipeRH(u) {
 }
 
 /* ---------- ações ---------- */
-async function arquivoCV(c) { const blob = await SB.baixar('rh', c.curriculo_caminho); return { blob, url: URL.createObjectURL(blob) }; }
+const AREAS_RH = ['Produção / fábrica', 'Solda e serralheria', 'Pintura', 'Montagem', 'Expedição e logística', 'Motorista', 'Vendas', 'Administrativo / financeiro', 'Marketing', 'Outra área'];
+function arquivosDe(c) { const a = Array.isArray(c.arquivos) ? c.arquivos.filter(x => x && x.caminho) : []; return a.length ? a : c.curriculo_caminho ? [{ caminho: c.curriculo_caminho, nome: c.curriculo_nome, mime: c.curriculo_mime }] : []; }
+async function arquivoCV(c, i) { const a = arquivosDe(c)[+i || 0]; if (!a) throw new Error('sem arquivo'); const blob = await SB.baixar('rh', a.caminho); return { a, blob, url: URL.createObjectURL(blob) }; }
 Object.assign(acts, {
   'rh-novos': () => { ui.rhF = { ...(ui.rhF || {}), busca: '', status: '', area: '', uf: '', per: '', novos: true }; ui.view = 'rh'; renderApp(); },
   'rh-st': e => { ui.rhF.status = ui.rhF.status === e.dataset.k ? '' : e.dataset.k; renderApp(); },
@@ -2352,15 +2362,22 @@ Object.assign(acts, {
     try { await API.salvarCand(dr.id, { status: d.status, avaliacao: d.avaliacao || null, notas: d.notas.trim() || null }); dr.draft = null; dr.erro = ''; refresh(); toast('Avaliação salva.'); }
     catch (err) { dr.erro = msgErro(err); renderDrawer(); }
   },
+  'cand-dados': async () => {
+    const dr = ui.drawer, x = dr.dados, tel = soDig(x.telefone).replace(/^55(?=\d{10,11}$)/, ''), uf = x.uf.trim().toUpperCase(), email = x.email.trim().toLowerCase();
+    const erro = x.nome.trim().length < 3 ? 'Informe o nome do candidato.' : tel && !/^\d{10,11}$/.test(tel) ? 'O WhatsApp precisa ter DDD + número (10 ou 11 dígitos).' : email && !/^\S+@\S+\.\S+$/.test(email) ? 'Confira o e-mail.' : uf && !/^[A-Z]{2}$/.test(uf) ? 'O estado é a sigla com 2 letras, ex.: SP.' : '';
+    if (erro) { dr.erroDados = erro; return renderDrawer(); }
+    try { await API.salvarCand(dr.id, { nome: x.nome.trim(), telefone: tel || null, email: email || null, cidade: x.cidade.trim() || null, uf: uf || null, area: x.area || 'A definir', cargo: x.cargo.trim() || null }); dr.dados = null; dr.erroDados = ''; refresh(); toast('Dados do candidato salvos.'); }
+    catch (err) { dr.erroDados = msgErro(err); renderDrawer(); }
+  },
   'cand-apagar': async () => { const c = candDe(ui.drawer.id); if (!c || !ehRHAdm(eu())) return; try { await API.apagarCand(c); fecharDrawer(); renderApp(); toast('Candidatura apagada.'); } catch (err) { toast(msgErro(err)); } },
   'cv-ver': async e => {
     const c = candDe(e.dataset.id); if (!c) return;
-    try { const f = await arquivoCV(c), m = c.curriculo_mime || f.blob.type, v = document.createElement('div'); v.className = 'viewer';
-      v.innerHTML = `<div class="vb"><b>${esc(c.curriculo_nome || 'Currículo')}</b><button class="btn sm" data-act="cv-baixar" data-id="${esc(c.id)}">Baixar</button><button class="btn ghost sm" style="color:#fff;border-color:#fff" data-act="fechar-viewer">Fechar</button></div>
+    try { const f = await arquivoCV(c, e.dataset.i), m = f.a.mime || f.blob.type, v = document.createElement('div'); v.className = 'viewer';
+      v.innerHTML = `<div class="vb"><b>${esc(f.a.nome || 'Currículo')}</b><button class="btn sm" data-act="cv-baixar" data-id="${esc(c.id)}" data-i="${+e.dataset.i || 0}">Baixar</button><button class="btn ghost sm" style="color:#fff;border-color:#fff" data-act="fechar-viewer">Fechar</button></div>
         <div class="vc">${m.startsWith('image/') ? `<img src="${f.url}" alt="Currículo">` : m === 'application/pdf' ? `<iframe title="Currículo" src="${f.url}"></iframe>` : '<p style="padding:20px">Este arquivo é do Word: use o botão Baixar para abrir no computador.</p>'}</div>`;
       document.body.appendChild(v); } catch (x) { toast('Não foi possível abrir o currículo agora.'); }
   },
-  'cv-baixar': async e => { const c = candDe(e.dataset.id); if (!c) return; try { const f = await arquivoCV(c), a = document.createElement('a'); a.href = f.url; a.download = c.curriculo_nome || 'curriculo'; document.body.appendChild(a); a.click(); a.remove(); } catch (x) { toast('Não foi possível baixar o currículo agora.'); } },
+  'cv-baixar': async e => { const c = candDe(e.dataset.id); if (!c) return; try { const f = await arquivoCV(c, e.dataset.i), a = document.createElement('a'); a.href = f.url; a.download = f.a.nome || 'curriculo'; document.body.appendChild(a); a.click(); a.remove(); } catch (x) { toast('Não foi possível baixar o currículo agora.'); } },
   'reu-agendar': async () => {
     const dr = ui.drawer, c = candDe(dr.id), ag = dr.ag; if (!c) return;
     const ini = new Date(`${ag.data}T${ag.hora || '09:00'}:00`);
@@ -2397,10 +2414,10 @@ let tRh = null;
 document.addEventListener('input', ev => {
   const t = ev.target;
   if (t.id === 'rhBusca') { ui.rhF.busca = t.value; clearTimeout(tRh); tRh = setTimeout(() => { renderApp(); const i = $('#rhBusca'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 300); }
-  if (t.dataset && t.dataset.cd && ui.drawer && ui.drawer.draft) ui.drawer.draft[t.dataset.cd] = t.value;
+  if (t.dataset && t.dataset.cd && ui.drawer && ui.drawer.draft) ui.drawer.draft[t.dataset.cd] = t.value; if (t.dataset && t.dataset.cdd && ui.drawer && ui.drawer.dados) ui.drawer.dados[t.dataset.cdd] = t.value;
   if (t.dataset && t.dataset.ag && ui.drawer && ui.drawer.ag) ui.drawer.ag[t.dataset.ag] = t.value;
 });
-document.addEventListener('change', ev => { const t = ev.target; if (t.dataset && t.dataset.cd && ui.drawer && ui.drawer.draft) ui.drawer.draft[t.dataset.cd] = t.value; if (t.dataset && t.dataset.ag && ui.drawer && ui.drawer.ag) ui.drawer.ag[t.dataset.ag] = t.value; });
+document.addEventListener('change', ev => { const t = ev.target; if (t.dataset && t.dataset.cd && ui.drawer && ui.drawer.draft) ui.drawer.draft[t.dataset.cd] = t.value; if (t.dataset && t.dataset.cdd && ui.drawer && ui.drawer.dados) ui.drawer.dados[t.dataset.cdd] = t.value; if (t.dataset && t.dataset.ag && ui.drawer && ui.drawer.ag) ui.drawer.ag[t.dataset.ag] = t.value; });
 
 /* ---------- Avisos no Telegram ----------
    O banco manda as mensagens pelo robô da JCN (vendas, financeiro, RH, retornos de ligação e resumo das 8h).
@@ -3138,7 +3155,7 @@ const NUCLEO = {
     return antigo.id;
   },
   async salvarCand(id, campos) { const r = await SB.upd('candidaturas', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar esta candidatura.'); await carregarRH(); },
-  async apagarCand(c) { await SB.del('candidaturas', { id: c.id }); if (c.curriculo_caminho) { try { await SB.apagar('rh', c.curriculo_caminho); } catch (e) { } } await carregarRH(); },
+  async apagarCand(c) { await SB.del('candidaturas', { id: c.id }); for (const k of new Set([c.curriculo_caminho, ...(Array.isArray(c.arquivos) ? c.arquivos.map(x => x && x.caminho) : [])].filter(Boolean))) { try { await SB.apagar('rh', k); } catch (e) { } } await carregarRH(); },
   async agendarReuniao(r, c) {
     const x = await SB.ins('reunioes', [{ ...r, criado_por: SB.id }]);
     if (['novo', 'em_analise'].includes(c.status)) { try { await SB.upd('candidaturas', { id: c.id }, { status: 'entrevista' }); } catch (e) { } }
