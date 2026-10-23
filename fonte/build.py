@@ -21,7 +21,7 @@ o.CAT26.forEach(r=>{r[9]=0;}); o.PRECO_COLORS={};
 console.log('/* Catálogo JCN 2026: textos e fichas (sem preços) */\\n'+Object.keys(o).map(k=>'const '+k+' = '+JSON.stringify(o[k])+';').join('\\n'));
 """, S + '/catalogo.js'], text=True)
 js = "'use strict';\n" + '\n'.join([catalogo, ler('site.js').replace("'use strict';\n", '', 1).replace('__IMAGES__', json.dumps(mapa)), ler('supa.js'),
-     ler('app.js').replace("'use strict';\n", '', 1), ler('loja.js'), ler('vitrine.js'), ler('financeiro.js'), ler('galeria.js'), ler('crm.js'), ler('rh.js'), ler('telegram.js'), ler('orcamento.js'), ler('dados.js'), ler('init.js')])
+     ler('app.js').replace("'use strict';\n", '', 1), ler('loja.js'), ler('vitrine.js'), ler('financeiro.js'), ler('galeria.js'), ler('crm.js'), ler('ficha.js'), ler('rh.js'), ler('telegram.js'), ler('orcamento.js'), ler('dados.js'), ler('init.js')])
 js = '(function(){\n' + js + '\n})();\n'
 css = ler('style.css')
 v = hashlib.sha1((js + css).encode()).hexdigest()[:8]            # muda o nome a cada versão: o navegador não fica com arquivo velho
@@ -37,7 +37,7 @@ window.CONFIG = {{
 """)
 host = re.sub(r'^https?://', '', URL).rstrip('/'); esquema = URL.split('://')[0]
 csp = (f"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; "
-       f"img-src 'self' data: blob: {esquema}://{host}; connect-src 'self' {esquema}://{host}; frame-src blob:; object-src 'self' blob:; base-uri 'self'; form-action 'self'")
+       f"img-src 'self' data: blob: {esquema}://{host}; connect-src 'self' {esquema}://{host} https://viacep.com.br; frame-src blob:; object-src 'self' blob:; base-uri 'self'; form-action 'self'")
 html = f'''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>

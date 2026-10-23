@@ -8,15 +8,20 @@ def conta(nome, email, papel, senha):
     banco(f"insert into perfis (id, nome, email, papel, empresa) select id, '{nome}', email, '{papel}', 'JCN Gourmet' from auth.users where email = '{email}'")
 conta('Rita RH', 'rita@jcn.test', 'rh_admin', 'Rita#2026x'); conta('Fábio Financeiro', 'fabio@jcn.test', 'financeiro', 'Fabio#2026'); conta('Marina', 'marina@jcn.test', 'vendedor', 'Marina#2026')
 PDF = FX + 'etiqueta-1.pdf'
-def preencher(pg, nome='Carlos Alberto Souza', email='carlos@exemplo.com', fone='(17) 98877-6655'):
-    pg.fill('#tc-nome', nome); pg.fill('#tc-email', email); pg.fill('#tc-telefone', fone); pg.fill('#tc-cidade', 'Catanduva'); pg.select_option('#tc-area', 'Solda e serralheria')
-    pg.fill('#tc-cargo', 'Soldador'); pg.select_option('#tc-escolaridade', 'Curso técnico'); pg.fill('#tc-experiencia', '5 anos de solda MIG na Metalúrgica X.'); pg.select_option('#tc-disponibilidade', 'Imediata')
+def etapa(pg, n):
+    pg.click(f'[data-tc-ir="{n}"]'); pg.wait_for_timeout(150)
+def preencher(pg, nome='Carlos Alberto Souza', email='carlos@exemplo.com', fone='(17) 98877-6655', area='Solda e serralheria'):
+    etapa(pg, 0); pg.fill('#tc-nome', nome)
+    etapa(pg, 1); pg.fill('#tc-telefone', fone); pg.fill('#tc-email', email); pg.fill('#tc-cidade', 'Catanduva')
+    etapa(pg, 2); pg.select_option('#tc-area', area); pg.fill('#tc-cargo', 'Soldador'); pg.select_option('#tc-escolaridade', 'Curso técnico'); pg.fill('#tc-experiencia', '5 anos de solda MIG na Metalúrgica X.'); pg.select_option('#tc-disponibilidade', 'Imediata')
+    etapa(pg, 7)
 try:
   with sync_playwright() as p:
     br = p.chromium.launch(); W = lambda pg, ms=300: pg.wait_for_timeout(ms)
     v, ev = pagina(br); v.goto(B); W(v, 1500)
     ok(v.locator('.site-head nav a[href="#trabalhe"]').count() == 1, 'menu do site tem "Trabalhe conosco"')
-    v.evaluate("document.querySelector('#trabalhe').scrollIntoView()"); W(v); v.click('#tcEnviar'); W(v); ok('nome completo' in v.inner_text('#tcErro'), 'valida o formulário: ' + v.inner_text('#tcErro'))
+    v.evaluate("document.querySelector('#trabalhe').scrollIntoView()"); W(v); v.click('#tcSeguir'); W(v); ok('nome completo' in v.inner_text('#tcErro'), 'valida a etapa antes de seguir: ' + v.inner_text('#tcErro'))
+    etapa(v, 7); v.click('#tcEnviar'); W(v); ok('nome completo' in v.inner_text('#tcErro') and v.is_visible('#tc-nome'), 'ao enviar, volta para a etapa com o erro')
     preencher(v); v.click('#tcEnviar'); W(v); ok('currículo' in v.inner_text('#tcErro'), 'pede o currículo')
     v.set_input_files('#tc-arquivo', FX + 'nao-e-pdf.txt'); v.click('#tcEnviar'); W(v); ok('PDF' in v.inner_text('#tcErro'), 'recusa arquivo de texto')
     v.set_input_files('#tc-arquivo', PDF); v.click('#tcEnviar'); W(v); ok('autorização' in v.inner_text('#tcErro'), 'pede a autorização (LGPD)')
@@ -52,7 +57,7 @@ try:
     ok('Reunião em' in toast(pg) or 'Reunião hoje' in pg.inner_text('.main'), 'aviso de reunião chegando: ' + toast(pg))
     pg.screenshot(path=R + '/testes/shots/t15_agenda.png', full_page=True)
     # aviso de currículo novo com a página aberta
-    v2, e2 = pagina(br); v2.goto(B); W(v2, 1200); v2.evaluate("document.querySelector('#trabalhe').scrollIntoView()"); preencher(v2, 'Ana Paula Lima', 'ana@exemplo.com', '(17) 99111-0000'); v2.select_option('#tc-area', 'Pintura')
+    v2, e2 = pagina(br); v2.goto(B); W(v2, 1200); v2.evaluate("document.querySelector('#trabalhe').scrollIntoView()"); preencher(v2, 'Ana Paula Lima', 'ana@exemplo.com', '(17) 99111-0000', 'Pintura')
     v2.set_input_files('#tc-arquivo', FX + 'comprovante.png'); v2.check('#tc-consentimento'); v2.click('#tcEnviar'); parado(v2, 1500)
     ir(pg, 'rh'); pg.evaluate("document.dispatchEvent(new Event('visibilitychange'))"); W(pg, 31500)
     ok('Novo currículo' in toast(pg) or 'Ana Paula' in pg.inner_text('.main'), 'o RH é avisado do currículo novo sem recarregar: ' + toast(pg))
