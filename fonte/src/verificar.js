@@ -29,6 +29,10 @@
       .then(function () { return passo(contar('produtos').then(function (n) { return n > 0 ? linha('ok', 'catálogo no banco', n + ' produtos ativos.') : linha('erro', 'catálogo vazio', 'Nenhum produto encontrado: rode o schema.sql no Supabase.'); })); })
       .then(function () { return passo(contar('vitrine').then(function (n) { return n > 0 ? linha('ok', 'loja do site com preços', n + ' produtos à venda para o consumidor.') : linha('aviso', 'loja do site sem produtos', 'A loja está fechada ou sem preços. Abra em Área restrita, Site e galeria.'); })); })
       .then(function () { return passo(Promise.all([contar('fotos_produto'), chamar('/rest/v1/rpc/email_do_login', { method: 'POST', body: { p_login: 'conferencia' } })]).then(function (r) { return r[0] > 0 && r[1].ok ? linha('ok', 'atualização 1 do banco', 'Fotos cadastradas (' + r[0] + ') e funções de login instaladas.') : linha('erro', 'atualização 1 do banco', 'Rode o arquivo atualizacao-1.sql no Supabase (SQL Editor, colar tudo, Run).'); })); })
+      .then(function () { return passo(Promise.all([chamar('/rest/v1/rpc/nomes_da_equipe', { method: 'POST', body: {} }), chamar('/rest/v1/rpc/candidatura_aceita_arquivo', { method: 'POST', body: { p_chave: 'conferencia' } })]).then(function (r) {
+          var lig = r[0].status !== 404, rh = r[1].ok;
+          return lig && rh ? linha('ok', 'atualizações 2, 3 e 4 do banco', 'Ligações, orçamentos, RH e "Trabalhe conosco" instalados.') : linha('erro', 'atualizações do banco', 'Falta rodar no Supabase: ' + [lig ? '' : 'atualizacao-2.sql e atualizacao-3.sql', rh ? '' : 'atualizacao-4.sql'].filter(Boolean).join(' e ') + '.');
+        })); })
       .then(function () {
         var fechadas = ['precos', 'pedidos', 'itens_pedido', 'perfis', 'configuracoes', 'catalogo_loja', 'anexos', 'parcelas_boleto'];
         return passo(Promise.all(fechadas.map(function (t) { return contar(t); })).then(function (ns) {

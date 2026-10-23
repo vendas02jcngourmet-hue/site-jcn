@@ -13,7 +13,7 @@ try:
     br = p.chromium.launch(); pg, errs = pagina(br); W = lambda ms=250: pg.wait_for_timeout(ms)
     pg.goto(B); W(1500)
     # ---------- 1. vendedora
-    entrar(pg, 'ecommerce', 'marina@jcn.test', 'Marina#2026'); ok('Vendas internas' in pg.inner_text('.err'), 'vendedora na aba E-commerce é mandada para a aba certa: ' + pg.inner_text('.err'))
+    entrar(pg, 'ecommerce', 'marina@jcn.test', 'Marina#2026'); ok('Equipe JCN' in pg.inner_text('.err'), 'vendedora na aba E-commerce é mandada para a aba certa: ' + pg.inner_text('.err'))
     entrar(pg, 'vendas', 'marina@jcn.test', 'Marina#2026')
     ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Pedidos', 'Ligações', 'Possíveis clientes', 'Contas e-commerce', 'Galeria de fotos'], 'menu da vendedora: ' + ' | '.join(nav(pg)))
     pg.fill('#bv', 'FF011'); pg.press('#bv', 'Enter'); W(); c = pg.inner_text('.cards .card').replace('\n', ' | ')

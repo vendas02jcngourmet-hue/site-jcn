@@ -5,7 +5,8 @@
    espelham as políticas RLS do schema.sql.
    ===================================================================== */
 // Representante entra por Vendas internas como o vendedor, mas só faz pedidos: não cria contas nem altera nada.
-const PAPEIS = { admin: 'Administrador', vendedor: 'Vendedor', representante: 'Representante', ecommerce: 'E-commerce' };
+const PAPEIS = { admin: 'Administrador', vendedor: 'Vendedor', representante: 'Representante', financeiro: 'Financeiro', rh_admin: 'RH administrativo', rh_assistente: 'RH assistente', ecommerce: 'E-commerce' };
+const ehFin = u => !!u && (u.papel === 'admin' || u.papel === 'financeiro');      // confere PIX, aprova boleto, marca parcelas
 const GRELHAS = { ferro: 'Ferro fundido', aco: 'Aço carbono' };
 // o que distingue o item dentro do modelo, e o nome que vai para o pedido
 const detalhe = p => p.grelha ? 'Grelha ' + GRELHAS[p.grelha].toLowerCase() : p.cor;
@@ -28,9 +29,12 @@ const grelhaDe = p => p.grelha ? GRELHAS[p.grelha] : specDe(p, 'grelha');
 const ehFogao = p => !!grelhaDe(p);
 const ONDE = { loja: ['Adicionar ao carrinho', 'no carrinho'], site: ['Adicionar à sacola', 'na sacola'], venda: ['Adicionar ao pedido', 'no pedido'] };
 const NAV = {
-  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['usuarios', 'Usuários']],
+  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['rh', 'Currículos (RH)'], ['rh-agenda', 'Reuniões do RH'], ['usuarios', 'Usuários']],
   vendedor: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['lojas', 'Contas e-commerce'], ['galeria', 'Galeria de fotos']],
   representante: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']],
+  financeiro: [['financeiro', 'Financeiro'], ['pedidos', 'Pedidos']],
+  rh_admin: [['rh', 'Currículos'], ['rh-agenda', 'Reuniões'], ['rh-equipe', 'Equipe do RH']],
+  rh_assistente: [['rh', 'Currículos'], ['rh-agenda', 'Reuniões']],
   ecommerce: [['loja', 'Produtos'], ['carrinho', 'Carrinho'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']]
 };
 const PIX = { sem: ['Sem comprovante', 'warn'], analise: ['Comprovante em análise', 'info'], verificado: ['PIX verificado', 'ok'], recusado: ['Comprovante recusado', 'bad'] };
@@ -83,8 +87,8 @@ function renderApp() {
   const u = eu(), app = $('#app');
   if (!u) { app.innerHTML = vLogin(); $('.login-art').style.backgroundImage = `url(${IMG.cover})`; return; }
   const nav = NAV[u.papel] || NAV.vendedor; if (!nav.find(n => n[0] === ui.view)) ui.view = nav[0][0];
-  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
-  const selo = id => { const n = id === 'carrinho' ? qtdCarrinho() : (id === 'pedidos' || id === 'financeiro') && u.papel === 'admin' ? state.pedidos.filter(p => id === 'financeiro' ? ehBoleto(p) && paraConferir(p) : paraConferir(p)).length : 0; return n ? `<span class="badge" aria-label="${n} ${id === 'carrinho' ? 'no carrinho' : id === 'financeiro' ? 'boletos para aprovar' : 'com pagamento para conferir'}">${n}</span>` : ''; };
+  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, rh: vRH, 'rh-agenda': vAgendaRH, 'rh-equipe': vEquipeRH, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
+  const selo = id => { const n = id === 'carrinho' ? qtdCarrinho() : (id === 'pedidos' || id === 'financeiro') && ehFin(u) ?  state.pedidos.filter(p => id === 'financeiro' ? ehBoleto(p) && paraConferir(p) : paraConferir(p)).length : 0; return n ? `<span class="badge" aria-label="${n} ${id === 'carrinho' ? 'no carrinho' : id === 'financeiro' ? 'boletos para aprovar' : 'com pagamento para conferir'}">${n}</span>` : ''; };
   app.innerHTML = `<div class="shell">
     <aside class="side">
       <span class="logo on-dark"><b>JCN</b><i>GOURMET</i></span>
@@ -97,7 +101,7 @@ function renderApp() {
 
 /* ---------- login ---------- */
 const PORTAIS = {
-  vendas: ['Vendas internas', 'Para a equipe JCN, vendedores e representantes: tabela de preços, pedidos, comprovantes de PIX e etiquetas de envio.', 'Entrar no Portal de Vendas'],
+  vendas: ['Equipe JCN', 'Para a equipe JCN: vendas e representantes, financeiro e RH. Cada login vê só o setor dele.', 'Entrar'],
   ecommerce: ['E-commerce', 'Para lojas online cadastradas pela JCN: produtos e valores liberados para a sua conta, carrinho, pagamento por PIX e envio das etiquetas.', 'Entrar na Área do E-commerce']
 };
 const portalDe = u => u.papel === 'ecommerce' ? 'ecommerce' : 'vendas';
@@ -346,21 +350,21 @@ function arqLi(id, remAct, extra = '') {
     ${remAct ? `<button class="btn danger sm" data-act="${remAct}" data-id="${esc(id)}" data-confirm="Confirmar">Remover</button>` : ''}</li>`;
 }
 function vPedidos(u) {
-  const lj = u.papel === 'ecommerce', f = u.papel === 'admin' ? (ui.filtroPed || '') : '';
-  const meus = state.pedidos.filter(p => u.papel === 'admin' || p.vendedor === u.id || (u.papel === 'vendedor' && respDe(p) === u.id));   // o vendedor acompanha os pedidos das lojas dele
+  const lj = u.papel === 'ecommerce', f = ehFin(u) ? (ui.filtroPed || '') : '';
+  const meus = state.pedidos.filter(p => ehFin(u) || p.vendedor === u.id || (u.papel === 'vendedor' && respDe(p) === u.id));   // o vendedor acompanha os pedidos das lojas dele
   const lista = meus.filter(p => !f || (f === 'ecommerce' || f === 'site' ? p.origem === f : f === 'analise' ? paraConferir(p) : f === 'boleto' ? ehBoleto(p) : p.origem !== 'ecommerce' && p.origem !== 'site')).sort((a, b) => b.numero - a.numero);
   const vazio = lj ? 'Nenhum pedido ainda. Escolha os produtos, monte o carrinho e envie o comprovante do PIX.' : f ? 'Nenhum pedido neste filtro.' : 'Nenhum pedido ainda. Use "Lançar pedido" para registrar a primeira venda.';
-  return `<h1>${lj || u.papel === 'representante' ? 'Meus pedidos' : 'Pedidos'}</h1><p class="sub">${u.papel === 'admin' ? 'Confira os comprovantes de PIX, aprove os boletos, baixe as etiquetas enviadas pelas lojas e libere a expedição.' : lj ? 'Acompanhe a conferência do PIX e a expedição. Abra um pedido para anexar mais etiquetas ou trocar o comprovante.' : u.papel === 'representante' ? 'Os pedidos que você lançou. Abra um pedido para acompanhar o pagamento e o envio.' : 'Seus pedidos e os das lojas de e-commerce que você atende. Abra um pedido para anexar o comprovante do PIX, ver a aprovação do boleto ou baixar a etiqueta.'}</p>
-  ${u.papel === 'admin' ? `<div class="bar"><label class="sr" for="fp">Filtrar pedidos</label><select id="fp" class="inp" style="width:auto" data-chg="filtro-ped">${[['', 'Todos os pedidos'], ['analise', 'Pagamentos para conferir'], ['boleto', 'Boleto parcelado'], ['site', 'Loja do site (consumidor final)'], ['ecommerce', 'Vindos do e-commerce'], ['interno', 'Lançados por vendedores']].map(([k, t]) => `<option value="${k}" ${k === f ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` : ''}
-  ${lista.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nº</th><th>Data</th>${lj ? '<th>Itens</th>' : '<th>Cliente</th>'}${u.papel === 'admin' ? '<th>Origem</th>' : ''}<th class="num">Total</th><th>Pagamento</th><th>Envio</th><th>Etiquetas</th><th></th></tr></thead><tbody>
+  return `<h1>${lj || u.papel === 'representante' ? 'Meus pedidos' : 'Pedidos'}</h1><p class="sub">${ehFin(u) ? 'Confira os comprovantes de PIX, aprove os boletos, baixe as etiquetas enviadas pelas lojas e libere a expedição.' : lj ? 'Acompanhe a conferência do PIX e a expedição. Abra um pedido para anexar mais etiquetas ou trocar o comprovante.' : u.papel === 'representante' ? 'Os pedidos que você lançou. Abra um pedido para acompanhar o pagamento e o envio.' : 'Seus pedidos e os das lojas de e-commerce que você atende. Abra um pedido para anexar o comprovante do PIX, ver a aprovação do boleto ou baixar a etiqueta.'}</p>
+  ${ehFin(u) ? `<div class="bar"><label class="sr" for="fp">Filtrar pedidos</label><select id="fp" class="inp" style="width:auto" data-chg="filtro-ped">${[['', 'Todos os pedidos'], ['analise', 'Pagamentos para conferir'], ['boleto', 'Boleto parcelado'], ['site', 'Loja do site (consumidor final)'], ['ecommerce', 'Vindos do e-commerce'], ['interno', 'Lançados por vendedores']].map(([k, t]) => `<option value="${k}" ${k === f ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` : ''}
+  ${lista.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nº</th><th>Data</th>${lj ? '<th>Itens</th>' : '<th>Cliente</th>'}${ehFin(u) ? '<th>Origem</th>' : ''}<th class="num">Total</th><th>Pagamento</th><th>Envio</th><th>Etiquetas</th><th></th></tr></thead><tbody>
   ${lista.map(p => `<tr><td><b>${p.numero}</b></td><td>${dataBR(p.criado)}</td>${lj ? `<td>${p.itens.map(i => `${i.qtd} × ${esc(i.nome)}`).join('<br>')}</td>` : `<td>${esc(p.cliente.nome)}<br><span class="note">${esc(p.cliente.cidade)}</span>${u.papel === 'vendedor' && p.vendedor !== u.id ? '<br>' + chip(['E-commerce', 'info']) : ''}</td>`}
-    ${u.papel === 'admin' ? `<td>${p.origem === 'ecommerce' ? chip(['E-commerce', 'info']) : p.origem === 'site' ? chip(['Loja do site', 'ok']) : esc((user(p.vendedor) || {}).nome || '')}</td>` : ''}<td class="num">${brl(totalPedido(p))}</td>
+    ${ehFin(u) ? `<td>${p.origem === 'ecommerce' ? chip(['E-commerce', 'info']) : p.origem === 'site' ? chip(['Loja do site', 'ok']) : esc((user(p.vendedor) || {}).nome || '')}</td>` : ''}<td class="num">${brl(totalPedido(p))}</td>
     <td>${chipPag(p)}</td><td>${chip(ENVIO[p.envio])}</td><td>${p.etiquetas.length || '<span class="note">nenhuma</span>'}</td>
     <td><button class="btn ghost sm" data-act="abrir-pedido" data-id="${esc(p.id)}">Abrir</button></td></tr>`).join('')}
   </tbody></table></div>` : `<div class="empty">${vazio}</div>`}`;
 }
 function dPedido(p, u) {
-  const adm = u.papel === 'admin', lj = p.origem === 'ecommerce', dono = p.vendedor === u.id, comp = p.pix.arquivo && state.arquivos[p.pix.arquivo];
+  const adm = u.papel === 'admin', fin = ehFin(u), lj = p.origem === 'ecommerce', dono = p.vendedor === u.id, comp = p.pix.arquivo && state.arquivos[p.pix.arquivo];
   const et = ['aguardando', 'expedicao', 'enviado'], ix = et.indexOf(p.envio), unidades = p.itens.reduce((s, i) => s + i.qtd, 0);
   const pode = adm || dono, bol = ehBoleto(p), pg = p.pagamento || {};          // o vendedor responsável por uma loja só acompanha
   const repr = u.papel === 'representante';                                       // representante só faz o pedido: depois, só envia o comprovante que faltar
@@ -377,18 +381,18 @@ function dPedido(p, u) {
   ${bol ? `<div class="panel" id="painelBoleto"><h2>Boleto parcelado ${chip(BOLETO[pg.status])}</h2>
     <div class="tbl-wrap"><table class="tbl" style="min-width:0"><thead><tr><th>Parcela</th><th>Prazo</th><th>Vencimento</th><th class="num">Valor</th><th>${pg.status === 'aprovado' ? 'Recebida' : ''}</th></tr></thead><tbody>
       ${parcelasDe(p).map(x => `<tr><td>${x.n} de ${x.de}</td><td>${x.dias} ${x.dias === 1 ? 'dia' : 'dias'}</td><td>${dataBR(x.vence)}</td><td class="num">${brl(x.valor)}</td>
-        <td>${pg.status !== 'aprovado' ? '' : adm ? `<input type="checkbox" class="toggle" data-act="parc-rec" data-id="${esc(p.id)}" data-d="${x.dias}" ${x.recebida ? 'checked' : ''} aria-label="Parcela ${x.n} recebida">` : chip(x.recebida ? ['Recebida', 'ok'] : ['Em aberto', ''])}</td></tr>`).join('')}</tbody></table></div>
+        <td>${pg.status !== 'aprovado' ? '' : fin ? `<input type="checkbox" class="toggle" data-act="parc-rec" data-id="${esc(p.id)}" data-d="${x.dias}" ${x.recebida ? 'checked' : ''} aria-label="Parcela ${x.n} recebida">` : chip(x.recebida ? ['Recebida', 'ok'] : ['Em aberto', ''])}</td></tr>`).join('')}</tbody></table></div>
     <p class="note" style="margin:8px 0 0">${pg.status === 'pendente' ? 'Aguardando a análise do financeiro. O pedido só segue para a expedição depois da aprovação.' : pg.status === 'aprovado' ? `Aprovado por ${esc((user(pg.por) || {}).nome || 'financeiro')} em ${dataBR(pg.em)}.` : `Recusado por ${esc((user(pg.por) || {}).nome || 'financeiro')} em ${dataBR(pg.em)}.${pg.motivo ? ' Motivo: ' + esc(pg.motivo) : ''}`}</p>
-    ${adm ? `<label class="field" style="margin-top:10px"><span>Motivo, se for recusar (opcional)</span><input id="blMotivo" value=""></label>
+    ${fin ? `<label class="field" style="margin-top:10px"><span>Motivo, se for recusar (opcional)</span><input id="blMotivo" value=""></label>
       <div class="bar" style="margin:10px 0 0"><button class="btn sm" data-act="boleto-ok" ${pg.status === 'aprovado' ? 'disabled' : ''}>Aprovar boleto</button>
       <button class="btn danger sm" data-act="boleto-nao" ${pg.status === 'recusado' || p.envio !== 'aguardando' ? 'disabled' : ''}>Recusar boleto</button></div>`
     : dono && !repr && pg.status === 'recusado' ? `<div class="bar" style="margin:10px 0 0"><button class="btn sm" data-act="boleto-reabrir">Pedir nova análise</button><button class="btn ghost sm" data-act="boleto-para-pix">Trocar para PIX</button></div>` : ''}</div>`
   : `<div class="panel"><h2>Comprovante do PIX ${chip(PIX[p.pix.status])}</h2>
     ${comp ? `<ul class="files">${arqLi(comp.id)}</ul>` : `<p class="note" style="margin:0 0 8px">${p.pix.status === 'verificado' ? 'Pagamento conferido sem arquivo anexado.' : 'Nenhum comprovante enviado. Anexe a imagem ou o PDF do PIX deste pedido.'}</p>`}
-    ${p.pix.status === 'recusado' && !adm ? '<p class="err" style="margin:8px 0 0">O comprovante foi recusado. Envie um novo para o pedido voltar à conferência.</p>' : ''}
+    ${p.pix.status === 'recusado' && !fin ? '<p class="err" style="margin:8px 0 0">O comprovante foi recusado. Envie um novo para o pedido voltar à conferência.</p>' : ''}
     <div class="bar" style="margin:10px 0 0">${trocaComp ? `<label tabindex="0" class="btn ghost sm">${comp ? 'Substituir comprovante' : 'Anexar comprovante'}<input type="file" accept="image/*,application/pdf" hidden data-file="comp-pedido"></label>` : ''}
-    ${adm ? `<button class="btn sm" data-act="pix-ok" ${p.pix.status === 'verificado' ? 'disabled' : ''}>Marcar como verificado</button><button class="btn danger sm" data-act="pix-nao" ${p.pix.status === 'sem' || p.pix.status === 'recusado' ? 'disabled' : ''}>Recusar comprovante</button>` : ''}</div>
-    ${adm ? '' : '<p class="note" style="margin:8px 0 0">A conferência do PIX é feita pela administração da JCN.</p>'}</div>`}
+    ${fin ? `<button class="btn sm" data-act="pix-ok" ${p.pix.status === 'verificado' ? 'disabled' : ''}>Marcar como verificado</button><button class="btn danger sm" data-act="pix-nao" ${p.pix.status === 'sem' || p.pix.status === 'recusado' ? 'disabled' : ''}>Recusar comprovante</button>` : ''}</div>
+    ${fin ? '' : '<p class="note" style="margin:8px 0 0">A conferência do PIX é feita pelo financeiro da JCN.</p>'}</div>`}
   <div class="panel"><h2>Etiquetas de envio (PDF) ${p.etiquetas.length ? chip([p.etiquetas.length + (p.etiquetas.length > 1 ? ' arquivos' : ' arquivo'), 'ok']) : chip(['Faltam as etiquetas', 'warn'])}</h2>
     ${p.etiquetas.length ? `<ul class="files">${p.etiquetas.map(id => arqLi(id, tiraEtq ? 'etq-rem' : '')).join('')}</ul>` : `<p class="note" style="margin:0 0 8px">${lj && adm ? 'A loja ainda não enviou as etiquetas deste pedido.' : 'Nenhuma etiqueta anexada. Envie o PDF de cada volume.'}</p>`}
     <p class="note" style="margin:8px 0 0">Este pedido tem ${unidades} ${unidades > 1 ? 'unidades' : 'unidade'}.</p>
@@ -438,6 +442,7 @@ function renderDrawer() {
     <div class="foot"><button class="btn" data-act="salvar-minha-senha">Trocar senha</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
   if (dr.tipo === 'pedido-site') { const p = (state.daqui || []).find(x => x.id === dr.id); if (!p) return fecharDrawer(); html = dPedidoSite(p, dr); }
   if (dr.tipo === 'meus-site') html = dMeusSite(dr);
+  if (dr.tipo === 'cand') { html = u ? dCand(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'gal-editar') { html = u ? dGalEditar(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'prospect') { html = u ? dProspect(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'orcamento') { html = u ? dOrcamento(dr, u) : ''; if (!html) return fecharDrawer(); }
@@ -600,17 +605,17 @@ const acts = {
   // boleto parcelado
   'forma-pag': e => { ui.pedido.forma = e.value; renderApp(); const r = $(e.value === 'boleto' ? '#fpBoleto' : '#fpPix'); if (r) r.focus(); },
   'boleto-dia': e => { const d = ui.pedido, x = +e.dataset.d; d.dias = BOLETO_DIAS.filter(k => k === x ? e.checked : d.dias.includes(k)); renderApp(); const c = $('#bd-' + x); if (c) c.focus(); },
-  'boleto-ok': () => { const p = pedidoAberto(); if (!p || !ehBoleto(p) || eu().papel !== 'admin') return; Object.assign(p.pagamento, { status: 'aprovado', por: sessao, em: hojeISO(), motivo: '' }); salvar('pedidos'); refresh(); toast('Boleto aprovado. O pedido já pode seguir para a expedição.'); },
-  'boleto-nao': () => { const p = pedidoAberto(); if (!p || !ehBoleto(p) || eu().papel !== 'admin' || p.envio !== 'aguardando') return; Object.assign(p.pagamento, { status: 'recusado', por: sessao, em: hojeISO(), motivo: ($('#blMotivo') || {}).value || '', recebidas: [] }); salvar('pedidos'); refresh(); toast('Boleto recusado. O vendedor vê o motivo no pedido.'); },
+  'boleto-ok': () => { const p = pedidoAberto(); if (!p || !ehBoleto(p) || !ehFin(eu())) return; Object.assign(p.pagamento, { status: 'aprovado', por: sessao, em: hojeISO(), motivo: '' }); salvar('pedidos'); refresh(); toast('Boleto aprovado. O pedido já pode seguir para a expedição.'); },
+  'boleto-nao': () => { const p = pedidoAberto(); if (!p || !ehBoleto(p) || !ehFin(eu()) || p.envio !== 'aguardando') return; Object.assign(p.pagamento, { status: 'recusado', por: sessao, em: hojeISO(), motivo: ($('#blMotivo') || {}).value || '', recebidas: [] }); salvar('pedidos'); refresh(); toast('Boleto recusado. O vendedor vê o motivo no pedido.'); },
   'boleto-reabrir': () => { const p = pedidoAberto(); if (!p || !ehBoleto(p) || p.pagamento.status !== 'recusado' || eu().papel === 'representante') return; p.pagamento.status = 'pendente'; salvar('pedidos'); refresh(); toast('Pedido enviado de novo para o financeiro.'); },
   'boleto-para-pix': () => { const p = pedidoAberto(); if (!p || !ehBoleto(p) || p.pagamento.status === 'aprovado' || eu().papel === 'representante') return; p.pagamento = { forma: 'pix' }; p.pix = { status: 'sem', arquivo: null }; salvar('pedidos'); refresh(); toast('Pagamento trocado para PIX. Anexe o comprovante.'); },
-  'parc-rec': e => { const p = state.pedidos.find(x => x.id === e.dataset.id); if (!p || !ehBoleto(p) || p.pagamento.status !== 'aprovado' || eu().papel !== 'admin') return; const d = +e.dataset.d, r = new Set(p.pagamento.recebidas || []); if (e.checked) r.add(d); else r.delete(d); p.pagamento.recebidas = [...r]; salvar('pedidos'); refresh(); toast(e.checked ? `Parcela de ${d} ${d === 1 ? 'dia' : 'dias'} do pedido nº ${p.numero} marcada como recebida. Para desfazer, abra o pedido.` : 'Parcela voltou para em aberto.'); },
+  'parc-rec': e => { const p = state.pedidos.find(x => x.id === e.dataset.id); if (!p || !ehBoleto(p) || p.pagamento.status !== 'aprovado' || !ehFin(eu())) return; const d = +e.dataset.d, r = new Set(p.pagamento.recebidas || []); if (e.checked) r.add(d); else r.delete(d); p.pagamento.recebidas = [...r]; salvar('pedidos'); refresh(); toast(e.checked ? `Parcela de ${d} ${d === 1 ? 'dia' : 'dias'} do pedido nº ${p.numero} marcada como recebida. Para desfazer, abra o pedido.` : 'Parcela voltou para em aberto.'); },
   'pix-ok': () => { const p = pedidoAberto(); p.pix.status = 'verificado'; p.pix.por = sessao; salvar('pedidos'); refresh(); toast('PIX marcado como verificado.'); },
-  'pix-nao': () => { const p = pedidoAberto(); p.pix.status = 'recusado'; p.pix.por = sessao; if (p.envio === 'expedicao') p.envio = 'aguardando'; salvar('pedidos'); refresh(); toast('Comprovante recusado.'); },
+  'pix-nao': () => { const p = pedidoAberto(); p.pix.status = 'recusado'; p.pix.por = sessao; if (p.envio === 'expedicao' && eu().papel === 'admin') p.envio = 'aguardando'; salvar('pedidos'); refresh(); toast('Comprovante recusado.'); },
   'etq-rem': e => { const p = pedidoAberto(); p.etiquetas = p.etiquetas.filter(x => x !== e.dataset.id); Files.remove(e.dataset.id); salvar('pedidos'); refresh(); },
   'envio': e => { const p = pedidoAberto(); p.envio = e.dataset.s; salvar('pedidos'); refresh(); toast(e.dataset.s === 'enviado' ? 'Pedido marcado como enviado.' : 'Pedido liberado para expedição.'); },
   // usuários
-  'toggle-user': e => { const eux = eu(), x = user(e.dataset.id); if (!x || !(eux.papel === 'admin' || (eux.papel === 'vendedor' && x.papel === 'ecommerce' && x.vendedorResp === eux.id))) { e.checked = !e.checked; return; } x.ativo = e.checked; salvar('usuarios'); },
+  'toggle-user': e => { const eux = eu(), x = user(e.dataset.id); if (!x || !(eux.papel === 'admin' || (eux.papel === 'rh_admin' && ehRH(x.papel)) || (eux.papel === 'vendedor' && x.papel === 'ecommerce' && x.vendedorResp === eux.id))) { e.checked = !e.checked; return; } x.ativo = e.checked; salvar('usuarios'); },
   'user-gerar': () => { $('#nuSenha').value = gerarSenha(); },
   'user-add': async () => {
     if (eu().papel !== 'admin' || ui.ocupado) return;

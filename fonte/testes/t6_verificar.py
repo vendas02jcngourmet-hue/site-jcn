@@ -10,7 +10,7 @@ try:
     s, e2 = pagina(br); s.goto(B); s.wait_for_timeout(2000); ok(s.locator('#stripes .stripe').count() == 11 and not [x for x in e2 if 'PAGEERR' in x], 'mesmo sem a atualização, o site abre (só as fotos do banco ainda não vêm)')
     srv.terminate(); srv.wait(); srv = subir()
     pg.reload(); pg.wait_for_timeout(2500); t = pg.inner_text('#lista')
-    ok(t.count('Certo:') == 7 and 'Falta' not in t and 'Atenção: site sem cadeado' in t, 'com tudo aplicado: 7 itens certos (o aviso de HTTPS é só do ambiente de teste): ' + pg.inner_text('#resumo'))
+    ok(t.count('Certo:') == 8 and 'Falta' not in t and 'Atenção: site sem cadeado' in t, 'com tudo aplicado: 8 itens certos (o aviso de HTTPS é só do ambiente de teste): ' + pg.inner_text('#resumo'))
     pg.fill('#email', 'admin@jcn.test'); pg.fill('#senha', 'errada'); pg.click('#form button'); pg.wait_for_timeout(900); ok('não conferem' in pg.inner_text('#conta'), 'senha errada: ' + pg.inner_text('#conta')[:60])
     pg.fill('#senha', 'Admin#2026'); pg.click('#form button'); pg.wait_for_timeout(1500); ok('Conta de administrador pronta' in pg.inner_text('#conta') and '177 valores' not in pg.inner_text('#conta') and '168 valores' in pg.inner_text('#conta'), 'conta de administrador conferida: ' + pg.inner_text('#conta'))
     banco("insert into auth.users (email, encrypted_password, email_confirmed_at) values ('semperfil@jcn.test', crypt('SemPerfil#1', gen_salt('bf', 4)), now())")

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Alegreya:ital,wght@0,400;0,500;1,400&family=Barlow:ital,wght@0,400;0,500;0,600;0,700;1,700;1,800&family=Tangerine:wght@700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.0f95dbe1.css">
+<link rel="stylesheet" href="estilo.286c7a0d.css">
 </head>
 <body>
 <div id="site">
@@ -20,6 +20,7 @@
       <a href="#topo">Linha Colors</a>
       <a href="#ambientes" data-jump="0.30">Ambientes</a>
       <a href="#linhas">Outras linhas</a>
+      <a href="#trabalhe">Trabalhe conosco</a>
       <a href="#contato">Contato</a>
     </nav>
     <a class="btn loja-btn" href="#loja">Loja</a>
@@ -121,6 +122,39 @@
       <p class="lead">Escolha o produto, pague por PIX e a JCN Gourmet prepara o envio. Nos fogões industriais você escolhe a grelha e, se quiser, leva o forno junto.</p>
       <div id="vitrine"></div>
     </section>
+    <section class="sec trab" id="trabalhe" aria-labelledby="trabTitulo">
+      <h2 class="title" id="trabTitulo">Trabalhe conosco</h2>
+      <p class="lead">Quer fazer parte da JCN Gourmet? Preencha seus dados e envie o currículo. O RH entra em contato pelo WhatsApp ou e-mail para marcar uma conversa.</p>
+      <form id="tcForm" class="tc-form" novalidate>
+        <fieldset><legend>Seus dados</legend>
+          <div class="tc-grid">
+            <label class="field tc-2"><span>Nome completo *</span><input id="tc-nome" autocomplete="name" maxlength="160"></label>
+            <label class="field"><span>E-mail *</span><input id="tc-email" type="email" autocomplete="email" maxlength="160"></label>
+            <label class="field"><span>WhatsApp com DDD *</span><input id="tc-telefone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(17) 99999-9999"></label>
+            <label class="field"><span>Data de nascimento</span><input id="tc-nascimento" type="date"></label>
+            <label class="field"><span>Cidade *</span><input id="tc-cidade" autocomplete="address-level2" maxlength="80"></label>
+            <label class="field"><span>Estado *</span><select id="tc-uf"></select></label>
+          </div></fieldset>
+        <fieldset><legend>Vaga</legend>
+          <div class="tc-grid">
+            <label class="field"><span>Área de interesse *</span><select id="tc-area"><option value="">Escolha</option><option>Produção / fábrica</option><option>Solda e serralheria</option><option>Pintura</option><option>Montagem</option><option>Expedição e logística</option><option>Motorista</option><option>Vendas</option><option>Administrativo / financeiro</option><option>Marketing</option><option>Outra área</option></select></label>
+            <label class="field"><span>Cargo pretendido</span><input id="tc-cargo" maxlength="120" placeholder="Ex.: soldador, auxiliar de produção"></label>
+            <label class="field"><span>Escolaridade</span><select id="tc-escolaridade"><option value="">Escolha</option><option>Ensino fundamental</option><option>Ensino médio incompleto</option><option>Ensino médio completo</option><option>Curso técnico</option><option>Superior incompleto</option><option>Superior completo</option><option>Pós-graduação</option></select></label>
+            <label class="field"><span>Disponibilidade para começar</span><select id="tc-disponibilidade"><option value="">Escolha</option><option>Imediata</option><option>Em 15 dias</option><option>Em 30 dias</option><option>A combinar</option></select></label>
+            <label class="field"><span>Pretensão salarial</span><input id="tc-pretensao" maxlength="60" placeholder="Ex.: R$ 2.500"></label>
+            <label class="field"><span>LinkedIn ou portfólio</span><input id="tc-linkedin" type="url" maxlength="300" placeholder="https://"></label>
+            <label class="field tc-3"><span>Experiência profissional</span><textarea id="tc-experiencia" rows="4" maxlength="4000" placeholder="Últimas empresas, funções e tempo em cada uma."></textarea></label>
+            <label class="field tc-3"><span>Mensagem para o RH</span><textarea id="tc-mensagem" rows="3" maxlength="2000"></textarea></label>
+          </div></fieldset>
+        <fieldset><legend>Currículo *</legend>
+          <label class="tc-arq"><input id="tc-arquivo" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp"><span id="tcArqNome">Escolher arquivo (PDF, Word ou foto, até 10 MB)</span></label>
+        </fieldset>
+        <label class="check tc-lgpd"><input type="checkbox" id="tc-consentimento"> Autorizo a JCN Gourmet a guardar e usar estes dados apenas para processos seletivos.</label>
+        <p class="tc-erro" role="alert" id="tcErro" hidden></p>
+        <button class="btn" type="submit" id="tcEnviar">Enviar currículo</button>
+      </form>
+      <div id="tcOk" class="tc-ok" role="status" hidden></div>
+    </section>
   </main>
 
   <footer class="site-foot" id="contato">
@@ -129,9 +163,9 @@
       <div><h3>Endereço da matriz</h3><p>Rua Araraquara, 710</p><p>Vila Rodrigues</p><p>Catanduva, SP</p></div>
       <div><h3>Telefone</h3><p><a href="tel:+5517996332037">(17) 99633-2037</a></p>
            <h3 style="margin-top:14px">WhatsApp</h3><p><a href="https://wa.me/5517991519932" target="_blank" rel="noopener">(17) 99151-9932</a></p></div>
-      <div><h3>E-mail</h3><p><a href="mailto:vendas@jcngourmet.com.br">vendas@jcngourmet.com.br</a></p><p><a href="https://www.jcngourmet.com.br" target="_blank" rel="noopener">www.jcngourmet.com.br</a></p></div>
+      <div><h3>Trabalhe conosco</h3><p><a href="#trabalhe">Envie seu currículo</a></p><h3 style="margin-top:14px">E-mail</h3><p><a href="mailto:vendas@jcngourmet.com.br">vendas@jcngourmet.com.br</a></p><p><a href="https://www.jcngourmet.com.br" target="_blank" rel="noopener">www.jcngourmet.com.br</a></p></div>
       <div><h3>Área de Login</h3>
-        <button class="foot-link" data-act="abrir-login" data-portal="vendas">Portal de vendas internas</button>
+        <button class="foot-link" data-act="abrir-login" data-portal="vendas">Portal da equipe JCN</button>
         <button class="foot-link" data-act="abrir-login" data-portal="ecommerce">Área do e-commerce</button></div>
     </div>
     <p class="small">JCN Gourmet. Catanduva, SP.</p>
@@ -144,6 +178,6 @@
 
 <noscript><p style="padding:24px">Este site precisa de JavaScript ligado no navegador.</p></noscript>
 <script src="config.js"></script>
-<script src="app.0f95dbe1.js"></script>
+<script src="app.286c7a0d.js"></script>
 </body>
 </html>

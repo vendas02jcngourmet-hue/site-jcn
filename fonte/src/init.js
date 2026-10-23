@@ -1,6 +1,6 @@
 /* ---------- início ---------- */
 state = inicial();
-montarPalco(); renderSite(); prepararScroll();
+montarPalco(); renderSite(); prepararScroll(); prepararTrabalhe();
 try { ui.view = sessionStorage.getItem('jcn-tela') || null; } catch (e) { }
 // a sessão caiu no servidor (senha trocada, conta desativada, muito tempo sem uso): volta para a tela de login
 SB.aoPerderSessao = () => {
