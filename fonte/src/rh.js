@@ -26,6 +26,7 @@ function prepararTrabalhe() {
     ${FICHA.map((s, i) => `<fieldset class="tc-etapa" data-etapa="${i}" hidden><legend>${i + 1}. ${esc(s.tit)}</legend>${s.nota ? `<p class="note tc-nota">${esc(s.nota)}</p>` : ''}${camposDaEtapa(s, 'tc', v)}</fieldset>`).join('')}
     <fieldset class="tc-etapa" data-etapa="${FICHA.length}" hidden><legend>${FICHA.length + 1}. Currículo e envio</legend>
       <label class="tc-arq"><input id="tc-arquivo" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp"><span id="tcArqNome">Escolher o currículo (PDF, Word ou foto, até 10 MB) *</span></label>
+      <label class="tc-arq tc-foto"><input id="tc-foto" type="file" accept="image/jpeg,image/png,image/webp"><span id="tcFotoNome">Sua foto (opcional): JPG ou PNG, até 5 MB</span></label>
       <label class="check tc-lgpd"><input type="checkbox" id="tc-consentimento"> Autorizo a JCN Gourmet a guardar e usar estes dados, inclusive documentos e a cor/raça informada, apenas para processos seletivos e, se eu for contratado, para a minha admissão. *</label>
     </fieldset>
     <p class="tc-erro" role="alert" id="tcErro" hidden></p>
@@ -38,6 +39,7 @@ function prepararTrabalhe() {
   });
   const guardar = () => { try { sessionStorage.setItem(RASCUNHO_TC, JSON.stringify(lerFicha('tc'))); } catch (e) { } };
   f.addEventListener('input', () => { guardar(); $('#tcErro').hidden = true; }); f.addEventListener('change', guardar);
+  $('#tc-foto').addEventListener('change', e => { const a = e.target.files[0]; $('#tcFotoNome').textContent = a ? `Foto: ${a.name} (${kb(a.size)})` : 'Sua foto (opcional): JPG ou PNG, até 5 MB'; });
   $('#tc-arquivo').addEventListener('change', e => { const a = e.target.files[0]; $('#tcArqNome').textContent = a ? `${a.name} (${kb(a.size)})` : 'Escolher o currículo (PDF, Word ou foto, até 10 MB) *'; });
   aplicarSe('tc'); irEtapaTC(0, true);
 }
@@ -53,7 +55,7 @@ function irEtapaTC(i, quieto) {
 function erroTC(m, k) {
   const i = k ? FICHA.findIndex(s => s.campos.some(c => c.k === k)) : -1; if (i >= 0 && i !== etapaTC) irEtapaTC(i, true);
   const e = $('#tcErro'); e.textContent = m; e.hidden = false;
-  if (k === 'arquivo' || k === 'consentimento') { const c = $('#tc-' + k); if (c) c.focus(); } else if (k) irAoCampo('tc', k);
+  if (k === 'arquivo' || k === 'consentimento' || k === 'foto') { const c = $('#tc-' + k); if (c) c.focus(); } else if (k) irAoCampo('tc', k);
 }
 const TIPOS_CV = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/webp'];
 function tipoCV(f) {
@@ -67,16 +69,22 @@ async function enviarCandidatura() {
   if (!arq) return erroTC('Anexe o seu currículo.', 'arquivo');
   const tipo = tipoCV(arq); if (!tipo) return erroTC('Envie o currículo em PDF, Word (DOC ou DOCX) ou foto (JPG ou PNG).', 'arquivo');
   if (arq.size > 10 * 1024 * 1024) return erroTC('O arquivo passa de 10 MB. Envie um arquivo menor.', 'arquivo');
+  const foto = $('#tc-foto').files[0];
+  if (foto && !['image/jpeg', 'image/png', 'image/webp'].includes(foto.type)) return erroTC('A foto precisa ser JPG ou PNG.', 'foto');
+  if (foto && foto.size > 5 * 1024 * 1024) return erroTC('A foto passa de 5 MB. Envie uma menor.', 'foto');
   if (!$('#tc-consentimento').checked) return erroTC('Marque a autorização para o uso dos dados no processo seletivo.', 'consentimento');
   $('#tcErro').hidden = true; const bt = $('#tcEnviar'); bt.disabled = true; bt.textContent = 'Enviando…';
   try {
     const r = await SB.rpc('enviar_candidatura', { p: { ...base, ficha, consentimento: true } });
     const caminho = `curriculos/${r.chave}/${uid()}-${nomeSeguro(arq.name)}`;
     await SB.enviar('rh', caminho, arq, tipo);
+    const cf = foto ? `curriculos/${r.chave}/foto-${uid()}.${extDe(foto.type)}` : '';
+    if (foto) await SB.enviar('rh', cf, foto, foto.type);
     await SB.rpc('anexar_curriculo', { p_id: r.id, p_chave: r.chave, p_caminho: caminho, p_nome: arq.name, p_mime: tipo });
+    if (foto) { try { await SB.rpc('anexar_foto', { p_id: r.id, p_chave: r.chave, p_caminho: cf, p_mime: foto.type }); } catch (e) { } }
     try { sessionStorage.removeItem(RASCUNHO_TC); } catch (e) { }
     $('#tcForm').hidden = true; const ok = $('#tcOk'); ok.hidden = false;
-    ok.innerHTML = `<h3>Currículo enviado. Obrigado, ${esc(base.nome.split(' ')[0])}!</h3><p>O RH da JCN Gourmet vai analisar os seus dados e entra em contato pelo WhatsApp ou pelo e-mail ${esc(base.email)}.</p>`;
+    ok.innerHTML = `<h3>Currículo enviado. Obrigado, ${esc(base.nome.split(' ')[0])}!</h3><p>O RH da JCN Gourmet vai analisar os seus dados e entra em contato pelo WhatsApp ou pelo e-mail ${esc(base.email)}.</p>${r.substituiu ? '<p class="note">Como já havia um currículo com este CPF, ele foi substituído por este.</p>' : ''}`;
     ok.scrollIntoView({ block: 'center' });
   } catch (e) { erroTC(msgErro(e)); } finally { bt.disabled = false; bt.textContent = 'Enviar currículo'; }
 }
@@ -147,7 +155,8 @@ function dCand(dr, u) {
   const d = dr.draft || (dr.draft = { status: c.status, avaliacao: c.avaliacao || 0, notas: c.notas || '' }), fv = dr.fdraft || valoresDaCand(c);
   const arqs = arquivosDe(c), falta = !c.telefone || !c.cidade || c.area === 'A definir', nf = Object.keys(c.ficha || {}).length;
   const rs = reunioesDe(c.id).slice().sort((a, b) => a.inicio < b.inicio ? 1 : -1), ag = dr.ag || (dr.ag = { data: somaDias(hojeISO(), 1), hora: '09:00', duracao: 30, link: '', obs: '' });
-  return `<h2 class="dt">${esc(c.nome)}</h2><p class="note">${chip(ST_CAND[c.status])} · recebido em ${dtHora(c.criado_em)}${c.origem === 'telegram' ? ' · <span class="chip tg">pelo Telegram</span>' : ''}</p>
+  if (c.foto_caminho) setTimeout(() => mostrarFotoCand(c), 0);
+  return `${c.foto_caminho ? `<div class="cand-foto" id="candFoto" aria-label="Foto de ${esc(c.nome)}"></div>` : ''}<h2 class="dt">${esc(c.nome)}</h2><p class="note">${chip(ST_CAND[c.status])} · recebido em ${dtHora(c.criado_em)}${c.origem === 'telegram' ? ' · <span class="chip tg">pelo Telegram</span>' : ''}</p>
   ${fichaParaLer(c)}
   ${c.experiencia ? `<h3>Experiência</h3><p class="pre">${esc(c.experiencia)}</p>` : ''}${c.mensagem ? `<h3>Mensagem</h3><p class="pre">${esc(c.mensagem)}</p>` : ''}
   <h3>Currículo${arqs.length > 1 ? ` <span class="note">(${arqs.length} páginas)</span>` : ''}</h3>${arqs.length ? `<ul class="arqs">${arqs.map((a, i) => `<li><span>${arqs.length > 1 ? `<b>Página ${i + 1}</b> · ` : ''}<span class="note">${esc(a.nome || 'currículo')}</span></span><button class="btn sm" data-act="cv-ver" data-id="${esc(c.id)}" data-i="${i}">Ver</button><button class="btn ghost sm" data-act="cv-baixar" data-id="${esc(c.id)}" data-i="${i}">Baixar</button></li>`).join('')}</ul>` : '<p class="note">O candidato não chegou a enviar o arquivo.</p>'}
@@ -220,6 +229,16 @@ function vEquipeRH(u) {
     <div class="bar" style="margin:10px 0 0"><button class="btn sm" data-act="rhq-add">Criar login</button><button class="btn ghost sm" data-act="rhq-gerar">Gerar senha</button></div></div>`;
 }
 
+const fotosCand = {};
+async function mostrarFotoCand(c) {
+  try { if (!fotosCand[c.foto_caminho]) fotosCand[c.foto_caminho] = URL.createObjectURL(await SB.baixar('rh', c.foto_caminho));
+    const el = $('#candFoto'); if (el) el.innerHTML = `<img src="${fotosCand[c.foto_caminho]}" alt="Foto de ${esc(c.nome)}">`; } catch (e) { }
+}
+// arquivos de currículos substituídos (mesmo CPF): o RH Administrativo apaga da pasta ao abrir o RH
+async function limparArquivosRH() {
+  const u = eu(); if (!u || !ehRHAdm(u)) return;
+  try { const fila = await SB.sel('rh_apagar', 'select=caminho&limit=50'); for (const x of fila) { try { await SB.apagar('rh', x.caminho); } catch (e) { } await SB.del('rh_apagar', { caminho: x.caminho }); } } catch (e) { }
+}
 /* ---------- ações ---------- */
 const AREAS_RH = ['Produção / fábrica', 'Solda e serralheria', 'Pintura', 'Montagem', 'Expedição e logística', 'Motorista', 'Vendas', 'Administrativo / financeiro', 'Marketing', 'Outra área'];
 function arquivosDe(c) { const a = Array.isArray(c.arquivos) ? c.arquivos.filter(x => x && x.caminho) : []; return a.length ? a : c.curriculo_caminho ? [{ caminho: c.curriculo_caminho, nome: c.curriculo_nome, mime: c.curriculo_mime }] : []; }

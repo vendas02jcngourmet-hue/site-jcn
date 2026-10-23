@@ -47,3 +47,6 @@ def parado(pg, ms=450):
     try: pg.wait_for_load_state('networkidle', timeout=6000)
     except Exception: pass
     pg.wait_for_timeout(150)
+
+NAO_RESTO = """(() => { const e = document.querySelector('.tc-etapa:not([hidden])'); e.querySelectorAll('.fc-sn').forEach(g => { if (!g.closest('[hidden]') && !g.querySelector('input:checked')) { const r = g.querySelector('input[value=nao]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); } }); })()"""
+def nao_no_resto(pg): pg.evaluate(NAO_RESTO); pg.wait_for_timeout(100)

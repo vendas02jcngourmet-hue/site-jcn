@@ -10,10 +10,17 @@ conta('Rita RH', 'rita@jcn.test', 'rh_admin', 'Rita#2026x'); conta('Fábio Finan
 PDF = FX + 'etiqueta-1.pdf'
 def etapa(pg, n):
     pg.click(f'[data-tc-ir="{n}"]'); pg.wait_for_timeout(150)
+CPFS = iter(['52998224725', '11144477735', '39053344705'])
 def preencher(pg, nome='Carlos Alberto Souza', email='carlos@exemplo.com', fone='(17) 98877-6655', area='Solda e serralheria'):
     etapa(pg, 0); pg.fill('#tc-nome', nome)
     etapa(pg, 1); pg.fill('#tc-telefone', fone); pg.fill('#tc-email', email); pg.fill('#tc-cidade', 'Catanduva')
     etapa(pg, 2); pg.select_option('#tc-area', area); pg.fill('#tc-cargo', 'Soldador'); pg.select_option('#tc-escolaridade', 'Curso técnico'); pg.fill('#tc-experiencia', '5 anos de solda MIG na Metalúrgica X.'); pg.select_option('#tc-disponibilidade', 'Imediata')
+    etapa(pg, 3); pg.check('#tc-emp1_nenhum')
+    etapa(pg, 4); pg.fill('#tc-cpf', next(CPFS))
+    etapa(pg, 5); nao_no_resto(pg)
+    etapa(pg, 7); pg.select_option('#tc-como_soube', 'Redes sociais'); nao_no_resto(pg)
+    etapa(pg, 8); nao_no_resto(pg)
+    etapa(pg, 9); nao_no_resto(pg)
     etapa(pg, 11)
 try:
   with sync_playwright() as p:

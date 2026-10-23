@@ -2150,21 +2150,27 @@ const AREAS_TC = ['Produção / fábrica', 'Solda e serralheria', 'Pintura', 'Mo
 const CNH_CAT = ['Não tenho', 'A', 'B', 'AB', 'C', 'D', 'E', 'AC', 'AD', 'AE'];
 const temCNH = v => !!v && v !== 'Não tenho';
 // pergunta de sim/não com o detalhe que abre quando a resposta é "sim"
-const sn = (k, rot, ...det) => [{ k, rot, t: 'simnao', perg: 1, l: 6 }, ...det.map(([dk, drot, extra]) => ({ k: dk, rot: drot, l: 3, max: 160, pai: k, se: [k, v => v === 'sim'], ...(extra || {}) }))];
+const sn = (k, rot, ...det) => [{ k, rot, t: 'simnao', perg: 1, obr: 1, l: 6 }, ...det.map(([dk, drot, extra]) => ({ k: dk, rot: drot, l: 3, max: 160, pai: k, obr: 1, se: [k, v => v === 'sim'], ...(extra || {}) }))];
+const NOME_EMP = ['Último / atual emprego', 'Penúltimo emprego', 'Antepenúltimo emprego'];
+const empAberto = (n, g) => [1, 2, 3].filter(i => i < n).every(i => g(`emp${i}_nenhum`) !== 'sim');      // sem "não tive" nos anteriores
+const empTem = (n, g) => empAberto(n, g) && g(`emp${n}_nenhum`) !== 'sim';
 const EMPREGOS = [1, 2, 3].flatMap(n => [
-  { sub: n === 1 ? '1º emprego (o mais recente)' : `${n}º emprego` },
-  { k: `emp${n}_empresa`, rot: 'Empresa', l: 3, max: 120 },
-  { k: `emp${n}_funcao`, rot: 'Função', l: 3, max: 120 },
-  { k: `emp${n}_inicio`, rot: 'Entrou em', t: 'mes', l: 2, emp: n },
-  { k: `emp${n}_fim`, rot: 'Saiu em', t: 'mes', l: 2, emp: n, se: [`emp${n}_atual`, v => v !== 'sim'] },
-  { k: `emp${n}_atual`, rot: 'Ainda trabalho aqui', t: 'check', l: 2, emp: n, ler: 'Ainda trabalha lá' }]);
+  { sub: NOME_EMP[n - 1], sk: `emp${n}_tit`, seF: g => empAberto(n, g) },
+  { k: `emp${n}_nenhum`, rot: n === 1 ? 'Nunca trabalhei (é o meu primeiro emprego)' : 'Não tive outro emprego antes deste', t: 'check', l: 6, emp: n, seF: g => empAberto(n, g), ler: n === 1 ? 'Primeiro emprego' : 'Não teve' },
+  { k: `emp${n}_empresa`, rot: 'Empresa', l: 3, max: 120, obr: 1, seF: g => empTem(n, g) },
+  { k: `emp${n}_local`, rot: 'Cidade/UF da empresa', l: 3, max: 80, obr: 1, ph: 'Ex.: Catanduva/SP', seF: g => empTem(n, g) },
+  { k: `emp${n}_funcao`, rot: 'Função', l: 2, max: 120, obr: 1, seF: g => empTem(n, g) },
+  { k: `emp${n}_inicio`, rot: 'Entrou em', t: 'mes', l: 2, emp: n, obr: 1, seF: g => empTem(n, g) },
+  { k: `emp${n}_fim`, rot: 'Saiu em', t: 'mes', l: 2, emp: n, obr: 1, seF: g => empTem(n, g) && (n > 1 || g('emp1_atual') !== 'sim') },
+  ...(n === 1 ? [{ k: 'emp1_atual', rot: 'Ainda trabalho aqui', t: 'check', l: 2, emp: 1, ler: 'Ainda trabalha lá', seF: g => empTem(1, g) }] : []),
+  { tempo: n, sk: `emp${n}_tempo`, seF: g => empTem(n, g) }]);
 const PERGUNTAS = [
   { sub: 'Sobre a empresa e a vaga' },
   ...sn('parente', 'Tem parente que trabalha na empresa?', ['parente_quem', 'Quem? Qual o parentesco?']),
   ...sn('indicado', 'Foi indicado por algum funcionário?', ['indicado_por', 'Por quem?']),
   ...sn('ja_trabalhou', 'Já trabalhou na empresa?', ['ja_trab_periodo', 'Em qual período?', { ph: 'Ex.: 2019 a 2021' }], ['ja_trab_funcao', 'Em qual função?']),
-  { k: 'como_soube', rot: 'Como soube da vaga?', t: 'sel', l: 3, ops: ['Indicação de funcionário', 'Amigos ou família', 'Redes sociais', 'Site da JCN', 'Placa na fábrica', 'Agência ou PAT/SINE', 'Outro'] },
-  { k: 'como_soube_outro', rot: 'Qual?', l: 3, max: 120, se: ['como_soube', v => v === 'Outro'] },
+  { k: 'como_soube', rot: 'Como soube da vaga?', t: 'sel', l: 3, obr: 1, ops: ['Indicação de funcionário', 'Amigos ou família', 'Redes sociais', 'Site da JCN', 'Placa na fábrica', 'Agência ou PAT/SINE', 'Outro'] },
+  { k: 'como_soube_outro', rot: 'Qual?', l: 3, max: 120, obr: 1, se: ['como_soube', v => v === 'Outro'] },
   { sub: 'Sua situação' },
   ...sn('estudando', 'Está estudando?', ['estudando_que', 'O que está estudando?']),
   ...sn('desempregado', 'Está desempregado?', ['desempregado_desde', 'Desde quando?']),
@@ -2195,7 +2201,7 @@ const FICHA = [
   { id: 'voce', tit: 'Seus dados', curto: 'Seus dados', campos: [
     { k: 'nome', rot: 'Nome completo', obr: 1, l: 4, max: 160, auto: 'name', base: 1 },
     { k: 'nascimento', rot: 'Data de nascimento', t: 'data', l: 2, base: 1 },
-    { k: 'nasc_local', rot: 'Onde nasceu (cidade/UF)', l: 2, max: 80, ph: 'Ex.: Catanduva/SP' },
+    { k: 'nasc_local', rot: 'Cidade/UF', ler: 'Cidade/UF de nascimento', l: 2, max: 80, ph: 'Onde nasceu. Ex.: Catanduva/SP' },
     { k: 'estado_civil', rot: 'Estado civil', t: 'sel', l: 2, ops: ESTADO_CIVIL },
     { k: 'conjuge', rot: 'Nome do cônjuge', l: 2, max: 160, se: ['estado_civil', v => /Casado|União/.test(v)] },
     { k: 'mae', rot: 'Nome da mãe', l: 3, max: 160 },
@@ -2220,9 +2226,9 @@ const FICHA = [
     { k: 'linkedin', rot: 'LinkedIn ou portfólio', t: 'url', l: 2, max: 300, base: 1, ph: 'https://' },
     { k: 'experiencia', rot: 'Experiência profissional', t: 'area', l: 6, max: 4000, base: 1, ph: 'Últimas empresas, funções e tempo em cada uma.' },
     { k: 'mensagem', rot: 'Mensagem para o RH', t: 'area', l: 6, max: 2000, base: 1 }] },
-  { id: 'empregos', tit: 'Últimos 3 empregos', curto: 'Empregos', nota: 'Comece pelo mais recente. Se teve menos de 3, preencha só os que teve.', campos: EMPREGOS },
+  { id: 'empregos', tit: 'Últimos 3 empregos', curto: 'Empregos', nota: 'Comece pelo último (ou o atual). Se teve menos de 3 empregos, marque "Não tive outro emprego antes deste". Se nunca trabalhou, marque no primeiro.', campos: EMPREGOS },
   { id: 'docs', tit: 'Documentos', curto: 'Documentos', nota: 'Os documentos agilizam a contratação. Se não tiver algum agora, pode deixar em branco.', campos: [
-    { k: 'cpf', rot: 'CPF', t: 'cpf', l: 2 },
+    { k: 'cpf', rot: 'CPF', t: 'cpf', l: 2, obr: 1, dica: 'Um currículo por CPF: um envio novo substitui o anterior.' },
     { k: 'rg', rot: 'RG', l: 2, max: 20 },
     { k: 'rg_orgao', rot: 'Órgão emissor do RG', l: 2, max: 20, ph: 'Ex.: SSP/SP' },
     { k: 'pis', rot: 'PIS / PASEP / NIT', t: 'pis', l: 2 },
@@ -2235,8 +2241,8 @@ const FICHA = [
     { k: 'titulo_zona', rot: 'Zona', ler: 'Título: zona', t: 'dig', n: 4, l: 2 },
     { k: 'titulo_secao', rot: 'Seção', ler: 'Título: seção', t: 'dig', n: 4, l: 2 }] },
   { id: 'familia', tit: 'Filhos', curto: 'Filhos', campos: [
-    { k: 'filhos', rot: 'Tem filhos?', t: 'simnao', l: 2 },
-    { k: 'filhos_qtd', rot: 'Quantos?', ler: 'Quantos filhos', t: 'qtd', l: 2, se: ['filhos', v => v === 'sim'] },
+    { k: 'filhos', rot: 'Tem filhos?', t: 'simnao', l: 2, obr: 1 },
+    { k: 'filhos_qtd', rot: 'Quantos?', obr: 1, ler: 'Quantos filhos', t: 'qtd', l: 2, se: ['filhos', v => v === 'sim'] },
     { k: 'filhos_idades', rot: 'Idade de cada filho', t: 'idades', l: 6, se: ['filhos', v => v === 'sim'] }] },
   { id: 'corpo', tit: 'Características e uniforme', curto: 'Uniforme', nota: 'As medidas servem para separar o uniforme e os equipamentos de proteção.', campos: [
     { k: 'cor', rot: 'Cor ou raça (como você se declara)', t: 'sel', l: 2, ops: ['Branca', 'Preta', 'Parda', 'Amarela', 'Indígena', 'Prefiro não informar'] },
@@ -2249,10 +2255,13 @@ const FICHA = [
   { id: 'banco', tit: 'Pagamento', curto: 'Pagamento', nota: 'Usado só se você for contratado.', campos: [
     { k: 'pix_tipo', rot: 'Tipo da chave PIX', t: 'sel', l: 2, ops: ['CPF', 'Celular', 'E-mail', 'Chave aleatória'] },
     { k: 'pix', rot: 'Chave PIX', l: 4, max: 120, se: ['pix_tipo', v => !!v] },
-    { k: 'itau', rot: 'Tem conta no banco Itaú?', t: 'simnao', l: 3 }] },
+    ...sn('itau', 'Tem conta no banco Itaú?', ['itau_banco', 'Banco', { ro: 'Itaú Unibanco (341)', obr: 0 }], ['itau_agencia', 'Agência', { t: 'dig', n: 4, ph: '4 números' }],
+      ['itau_conta', 'Conta', { t: 'dig', n: 12, ph: 'Sem o dígito' }], ['itau_digito', 'Dígito', { max: 1, ph: 'Ex.: 5' }])] },
   { id: 'sobre', tit: 'Sobre você', curto: 'Sobre você', campos: SOBRE }
 ];
 const FICHA_DEFS = FICHA.flatMap(s => s.campos.filter(c => c.k));
+const FICHA_COND = FICHA.flatMap(s => s.campos.filter(c => (c.k || c.sk) && (c.se || c.seF)));
+const seOk = (c, g) => c.seF ? c.seF(g) : !c.se || c.se[1](g(c.se[0]) || '');
 function tempoEmprego(v, e) {
   const a = v[e + '_inicio'], b = v[e + '_atual'] === 'sim' ? hojeISO().slice(0, 7) : v[e + '_fim'];
   if (!/^\d{4}-\d{2}$/.test(a || '') || !/^\d{4}-\d{2}$/.test(b || '')) return '';
@@ -2287,7 +2296,7 @@ const numBR = v => { const t = String(v || '').trim().replace(/\s/g, '').replace
 function campoFicha(c, p, v) {
   const id = `${p}-${c.k}`, val = v[c.k] == null ? '' : v[c.k], obr = c.obr && p === 'tc' ? ' <b class="obr" aria-hidden="true">*</b>' : '';
   const att = `id="${id}" ${c.obr && p === 'tc' ? 'aria-required="true"' : ''} ${c.auto ? `autocomplete="${c.auto}"` : ''} ${c.ph ? `placeholder="${esc(c.ph)}"` : ''}`;
-  const cx = (dentro, rotulo = true) => `<${rotulo ? 'label' : 'div'} class="field fc fc-${c.l || 2}" data-fk="${p}:${c.k}"${c.se && !c.se[1](v[c.se[0]] || '') ? ' hidden' : ''}><span>${esc(c.rot)}${obr}</span>${dentro}${c.dica ? `<small class="fc-dica">${esc(c.dica)}</small>` : ''}</${rotulo ? 'label' : 'div'}>`;
+  const cx = (dentro, rotulo = true) => `<${rotulo ? 'label' : 'div'} class="field fc fc-${c.l || 2}" data-fk="${p}:${c.k}"${seOk(c, k => v[k] || '') ? '' : ' hidden'}><span>${esc(c.rot)}${obr}</span>${dentro}${c.dica ? `<small class="fc-dica">${esc(c.dica)}</small>` : ''}</${rotulo ? 'label' : 'div'}>`;
   const mask = (t, d) => MASCARA[t] ? MASCARA[t](soDig(d)) : d;
   switch (c.t) {
     case 'sel': case 'uf': { const ops = c.t === 'uf' ? UFS : c.ops, cur = val || (c.t === 'uf' && p === 'tc' ? 'SP' : '');
@@ -2297,7 +2306,7 @@ function campoFicha(c, p, v) {
       return cx(`<div class="fc-sn" role="radiogroup" aria-label="${esc(c.rot)}">${[['sim', 'Sim'], ['nao', 'Não']].map(([x, t]) => `<label><input type="radio" name="${id}" value="${x}" ${val === x ? 'checked' : ''}> ${t}</label>`).join('')}</div>`, false);
     case 'area': return cx(`<textarea ${att} rows="4" maxlength="${c.max || 2000}">${esc(val)}</textarea>`);
     case 'mes': return cx(`<input type="month" ${att} value="${esc(val)}">`);
-    case 'check': return cx(`<label class="check fc-chk"><input type="checkbox" id="${id}" value="sim" ${val === 'sim' ? 'checked' : ''}> ${esc(c.rot)}</label>`, false).replace(`<span>${esc(c.rot)}${obr}</span>`, '<span>&nbsp;</span>');
+    case 'check': return cx(`<label class="check fc-chk"><input type="checkbox" id="${id}" value="sim" ${val === 'sim' ? 'checked' : ''}> ${esc(c.rot)}</label>`, false).replace(`<span>${esc(c.rot)}${obr}</span>`, c.l === 6 ? '' : '<span>&nbsp;</span>');
     case 'data': return cx(`<input type="date" ${att} value="${esc(val)}">`);
     case 'email': return cx(`<input type="email" ${att} maxlength="160" value="${esc(val)}">`);
     case 'url': return cx(`<input type="url" ${att} maxlength="${c.max}" value="${esc(val)}">`);
@@ -2307,10 +2316,12 @@ function campoFicha(c, p, v) {
       return cx(`<div class="fc-idades" id="${id}">${n ? Array.from({ length: n }, (_, i) => `<label class="fc-idade"><span>${i + 1}º filho</span><input id="${id}-${i}" type="number" min="0" max="60" inputmode="numeric" value="${esc(ids[i] == null ? '' : ids[i])}" aria-label="Idade do ${i + 1}º filho"> <small>anos</small></label>`).join('') : '<p class="note" style="margin:0">Informe quantos filhos.</p>'}</div>`, false); }
     case 'tel': case 'cpf': case 'cep': case 'pis': case 'titulo': case 'dig':
       return cx(`<input inputmode="numeric" data-mask="${c.t}" ${att} maxlength="${c.t === 'dig' ? c.n : 20}" value="${esc(mask(c.t, val))}">`);
-    default: return cx(`<input ${att} maxlength="${c.max || 120}" value="${esc(val)}">`);
+    default: if (c.ro) return cx(`<input ${att} value="${esc(c.ro)}" readonly tabindex="-1">`);
+      return cx(`<input ${att} maxlength="${c.max || 120}" value="${esc(val)}">`);
   }
 }
-const camposDaEtapa = (s, p, v) => `<div class="fc-grid">${s.campos.filter(c => !c.pai).map(c => c.sub ? `<h4 class="fc-sub">${esc(c.sub)}</h4>` : campoFicha(c, p, v) + (c.k && /^emp\d_atual$/.test(c.k) ? `<p class="fc-tempo fc-6" id="${p}-${c.k.slice(0, 4)}_tempo">${esc(tempoEmprego(v, c.k.slice(0, 4)))}</p>` : '')).join('')}</div>`;
+const camposDaEtapa = (s, p, v) => `<div class="fc-grid">${s.campos.filter(c => !c.pai).map(c => { const esc_ = (c.se || c.seF) && !seOk(c, k => v[k] || '') ? ' hidden' : '';
+  return c.sub ? `<h4 class="fc-sub"${c.sk ? ` data-fk="${p}:${c.sk}"` : ''}${esc_}>${esc(c.sub)}</h4>` : c.tempo ? `<p class="fc-tempo fc-6" id="${p}-emp${c.tempo}_tempo" data-fk="${p}:${c.sk}"${esc_}>${esc(tempoEmprego(v, 'emp' + c.tempo))}</p>` : campoFicha(c, p, v); }).join('')}</div>`;
 
 /* leitura dos campos que estão à vista */
 function valorCampo(p, k) {
@@ -2320,7 +2331,7 @@ function valorCampo(p, k) {
   if (c.t === 'idades') return $$(`[id^="${p}-${k}-"]`).map(i => i.value.trim());
   const el = document.getElementById(`${p}-${k}`); return el ? el.value : '';
 }
-const visivel = (p, c) => !c.se || c.se[1](valorCampo(p, c.se[0]) || '');
+const visivel = (p, c) => seOk(c, k => valorCampo(p, k));
 function lerFicha(p) { const v = {}; FICHA_DEFS.forEach(c => { v[c.k] = valorCampo(p, c.k); }); return v; }
 // confere os campos (de uma etapa ou de todas); devolve [mensagem, chave] ou null
 function problemaFicha(p, v, so, publico) {
@@ -2328,7 +2339,7 @@ function problemaFicha(p, v, so, publico) {
     if (so && !so.includes(c.k)) continue;
     if (!visivel(p, c)) continue;
     const x = v[c.k], t = typeof x === 'string' ? x.trim() : x, d = soDig(t);
-    if (publico && c.obr && !t) return [c.k === 'nome' ? 'Informe o nome completo.' : c.k === 'telefone' ? 'Informe o WhatsApp com DDD.' : c.k === 'area' ? 'Escolha a área de interesse.' : `Preencha: ${c.rot}.`, c.k];
+    if (publico && c.obr && !t) return [c.k === 'nome' ? 'Informe o nome completo.' : c.k === 'telefone' ? 'Informe o WhatsApp com DDD.' : c.k === 'area' ? 'Escolha a área de interesse.' : c.k === 'cpf' ? 'Informe o CPF.' : c.t === 'simnao' ? `Responda: ${c.rot}` : c.pai ? `${defDe(c.pai).rot.replace(/\?$/, '')}: preencha "${c.rot.replace(/\?$/, '')}".` : c.emp || /^emp\d_/.test(c.k) ? `${NOME_EMP[+c.k[3] - 1]}: preencha "${c.rot}" (ou marque que não teve).` : `Preencha: ${c.rot}.`, c.k];
     if (c.k === 'nome' && ((publico && t.split(/\s+/).length < 2) || t.length < 3)) return ['Informe o nome completo.', c.k];
     if (!t || (Array.isArray(t) && !t.some(Boolean))) continue;
     if (c.t === 'email' && !/^\S+@\S+\.\S+$/.test(t)) return ['Confira o e-mail.', c.k];
@@ -2339,6 +2350,9 @@ function problemaFicha(p, v, so, publico) {
     if (c.t === 'titulo' && d.length !== 12) return ['O título de eleitor tem 12 números.', c.k];
     if (c.k === 'cnh_numero' && (d.length < 9 || d.length > 11)) return ['Confira o número da CNH.', c.k];
     if (c.t === 'dig' && c.k !== 'cnh_numero' && d.length > c.n) return [`Confira: ${c.rot}.`, c.k];
+    if (c.k === 'itau_agencia' && d.length !== 4) return ['A agência tem 4 números.', c.k];
+    if (c.k === 'itau_conta' && (d.length < 4 || d.length > 12)) return ['Confira o número da conta.', c.k];
+    if (c.k === 'itau_digito' && !/^[0-9Xx]$/.test(t)) return ['O dígito da conta é um número só.', c.k];
     if (c.k === 'altura') { const n = numBR(t), m = n > 3 ? n / 100 : n; if (!(m >= 1 && m <= 2.3)) return ['Confira a altura, em metros (ex.: 1,75).', c.k]; }
     if (c.k === 'peso') { const n = numBR(t); if (!(n >= 30 && n <= 250)) return ['Confira o peso, em quilos (ex.: 78).', c.k]; }
     if (c.k === 'filhos_qtd' && !(+t >= 1 && +t <= 15)) return ['Informe quantos filhos (de 1 a 15).', c.k];
@@ -2359,6 +2373,7 @@ function montarFicha(p, v) {
     if (['tel', 'cpf', 'cep', 'pis', 'titulo', 'dig'].includes(c.t)) x = soDig(x).replace(c.t === 'tel' ? /^55(?=\d{10,11}$)/ : /$^/, '');
     if (c.t === 'dec' && x) { let n = numBR(x); if (c.k === 'altura' && n > 3) n /= 100; x = String(n); }
     if (c.k === 'filhos_idades') x = (x || []).filter(a => a !== '').map(Number);
+    if (c.ro) return;
     if (c.base) base[c.k] = x || ''; else if (x !== '' && !(Array.isArray(x) && !x.length)) ficha[c.k] = x;
   });
   return { base, ficha };
@@ -2369,7 +2384,7 @@ function irAoCampo(p, k) {
 }
 // campos que aparecem conforme a resposta (cônjuge, CNH, filhos, chave PIX) e as idades dos filhos
 function aplicarSe(p) {
-  FICHA_DEFS.filter(c => c.se).forEach(c => { const w = $(`[data-fk="${p}:${c.k}"]`); if (w) w.hidden = !c.se[1](valorCampo(p, c.se[0]) || ''); });
+  FICHA_COND.forEach(c => { const w = $(`[data-fk="${p}:${c.k || c.sk}"]`); if (w) w.hidden = !seOk(c, k => valorCampo(p, k)); });
 }
 function refazerIdades(p) {
   const box = document.getElementById(`${p}-filhos_idades`); if (!box) return;
@@ -2425,9 +2440,9 @@ function fichaParaLer(c) {
   const v = valoresDaCand(c), dl = l => `<dl class="cand-dl">${l.map(([k, t]) => `<div><dt>${esc(k)}</dt><dd>${t}</dd></div>`).join('')}</dl>`;
   return FICHA.map(s => {
     if (s.id === 'empregos') {
-      const blocos = [1, 2, 3].map(n => { const e = `emp${n}`, l = [['Empresa', esc(v[e + '_empresa'] || '')], ['Função', esc(v[e + '_funcao'] || '')],
+      const blocos = [1, 2, 3].map(n => { const e = `emp${n}`; if (v[e + '_nenhum'] === 'sim') return `<p class="cand-emp">${NOME_EMP[n - 1]}: ${n === 1 ? 'nunca trabalhou (primeiro emprego)' : 'não teve'}</p>`; const l = [['Empresa', esc(v[e + '_empresa'] || '')], ['Cidade/UF', esc(v[e + '_local'] || '')], ['Função', esc(v[e + '_funcao'] || '')],
         ['Período', [textoCampo(defDe(e + '_inicio'), v[e + '_inicio']), v[e + '_atual'] === 'sim' ? 'atual' : textoCampo(defDe(e + '_fim'), v[e + '_fim'])].filter(Boolean).join(' até ')], ['Tempo', esc(tempoEmprego(v, e).replace('Tempo: ', ''))]].filter(x => x[1]);
-        return l.length ? `<p class="cand-emp">${n}º emprego${n === 1 ? ' (mais recente)' : ''}</p>${dl(l)}` : ''; }).join('');
+        return l.length ? `<p class="cand-emp">${NOME_EMP[n - 1]}</p>${dl(l)}` : ''; }).join('');
       return blocos ? `<h4 class="cand-sec">${esc(s.tit)}</h4>${blocos}` : '';
     }
     const linhas = s.campos.filter(x => x.k && !['experiencia', 'mensagem'].includes(x.k)).map(x => [x.ler || (x.pai ? (defDe(x.pai).rot.replace(/\?$/, '') + ': ' + x.rot.replace(/\?$/, '').toLowerCase()) : x.rot), textoCampo(x, v[x.k])]).filter(x => x[1]);
@@ -2466,6 +2481,7 @@ function prepararTrabalhe() {
     ${FICHA.map((s, i) => `<fieldset class="tc-etapa" data-etapa="${i}" hidden><legend>${i + 1}. ${esc(s.tit)}</legend>${s.nota ? `<p class="note tc-nota">${esc(s.nota)}</p>` : ''}${camposDaEtapa(s, 'tc', v)}</fieldset>`).join('')}
     <fieldset class="tc-etapa" data-etapa="${FICHA.length}" hidden><legend>${FICHA.length + 1}. Currículo e envio</legend>
       <label class="tc-arq"><input id="tc-arquivo" type="file" accept=".pdf,.doc,.docx,image/jpeg,image/png,image/webp"><span id="tcArqNome">Escolher o currículo (PDF, Word ou foto, até 10 MB) *</span></label>
+      <label class="tc-arq tc-foto"><input id="tc-foto" type="file" accept="image/jpeg,image/png,image/webp"><span id="tcFotoNome">Sua foto (opcional): JPG ou PNG, até 5 MB</span></label>
       <label class="check tc-lgpd"><input type="checkbox" id="tc-consentimento"> Autorizo a JCN Gourmet a guardar e usar estes dados, inclusive documentos e a cor/raça informada, apenas para processos seletivos e, se eu for contratado, para a minha admissão. *</label>
     </fieldset>
     <p class="tc-erro" role="alert" id="tcErro" hidden></p>
@@ -2478,6 +2494,7 @@ function prepararTrabalhe() {
   });
   const guardar = () => { try { sessionStorage.setItem(RASCUNHO_TC, JSON.stringify(lerFicha('tc'))); } catch (e) { } };
   f.addEventListener('input', () => { guardar(); $('#tcErro').hidden = true; }); f.addEventListener('change', guardar);
+  $('#tc-foto').addEventListener('change', e => { const a = e.target.files[0]; $('#tcFotoNome').textContent = a ? `Foto: ${a.name} (${kb(a.size)})` : 'Sua foto (opcional): JPG ou PNG, até 5 MB'; });
   $('#tc-arquivo').addEventListener('change', e => { const a = e.target.files[0]; $('#tcArqNome').textContent = a ? `${a.name} (${kb(a.size)})` : 'Escolher o currículo (PDF, Word ou foto, até 10 MB) *'; });
   aplicarSe('tc'); irEtapaTC(0, true);
 }
@@ -2493,7 +2510,7 @@ function irEtapaTC(i, quieto) {
 function erroTC(m, k) {
   const i = k ? FICHA.findIndex(s => s.campos.some(c => c.k === k)) : -1; if (i >= 0 && i !== etapaTC) irEtapaTC(i, true);
   const e = $('#tcErro'); e.textContent = m; e.hidden = false;
-  if (k === 'arquivo' || k === 'consentimento') { const c = $('#tc-' + k); if (c) c.focus(); } else if (k) irAoCampo('tc', k);
+  if (k === 'arquivo' || k === 'consentimento' || k === 'foto') { const c = $('#tc-' + k); if (c) c.focus(); } else if (k) irAoCampo('tc', k);
 }
 const TIPOS_CV = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/webp'];
 function tipoCV(f) {
@@ -2507,16 +2524,22 @@ async function enviarCandidatura() {
   if (!arq) return erroTC('Anexe o seu currículo.', 'arquivo');
   const tipo = tipoCV(arq); if (!tipo) return erroTC('Envie o currículo em PDF, Word (DOC ou DOCX) ou foto (JPG ou PNG).', 'arquivo');
   if (arq.size > 10 * 1024 * 1024) return erroTC('O arquivo passa de 10 MB. Envie um arquivo menor.', 'arquivo');
+  const foto = $('#tc-foto').files[0];
+  if (foto && !['image/jpeg', 'image/png', 'image/webp'].includes(foto.type)) return erroTC('A foto precisa ser JPG ou PNG.', 'foto');
+  if (foto && foto.size > 5 * 1024 * 1024) return erroTC('A foto passa de 5 MB. Envie uma menor.', 'foto');
   if (!$('#tc-consentimento').checked) return erroTC('Marque a autorização para o uso dos dados no processo seletivo.', 'consentimento');
   $('#tcErro').hidden = true; const bt = $('#tcEnviar'); bt.disabled = true; bt.textContent = 'Enviando…';
   try {
     const r = await SB.rpc('enviar_candidatura', { p: { ...base, ficha, consentimento: true } });
     const caminho = `curriculos/${r.chave}/${uid()}-${nomeSeguro(arq.name)}`;
     await SB.enviar('rh', caminho, arq, tipo);
+    const cf = foto ? `curriculos/${r.chave}/foto-${uid()}.${extDe(foto.type)}` : '';
+    if (foto) await SB.enviar('rh', cf, foto, foto.type);
     await SB.rpc('anexar_curriculo', { p_id: r.id, p_chave: r.chave, p_caminho: caminho, p_nome: arq.name, p_mime: tipo });
+    if (foto) { try { await SB.rpc('anexar_foto', { p_id: r.id, p_chave: r.chave, p_caminho: cf, p_mime: foto.type }); } catch (e) { } }
     try { sessionStorage.removeItem(RASCUNHO_TC); } catch (e) { }
     $('#tcForm').hidden = true; const ok = $('#tcOk'); ok.hidden = false;
-    ok.innerHTML = `<h3>Currículo enviado. Obrigado, ${esc(base.nome.split(' ')[0])}!</h3><p>O RH da JCN Gourmet vai analisar os seus dados e entra em contato pelo WhatsApp ou pelo e-mail ${esc(base.email)}.</p>`;
+    ok.innerHTML = `<h3>Currículo enviado. Obrigado, ${esc(base.nome.split(' ')[0])}!</h3><p>O RH da JCN Gourmet vai analisar os seus dados e entra em contato pelo WhatsApp ou pelo e-mail ${esc(base.email)}.</p>${r.substituiu ? '<p class="note">Como já havia um currículo com este CPF, ele foi substituído por este.</p>' : ''}`;
     ok.scrollIntoView({ block: 'center' });
   } catch (e) { erroTC(msgErro(e)); } finally { bt.disabled = false; bt.textContent = 'Enviar currículo'; }
 }
@@ -2587,7 +2610,8 @@ function dCand(dr, u) {
   const d = dr.draft || (dr.draft = { status: c.status, avaliacao: c.avaliacao || 0, notas: c.notas || '' }), fv = dr.fdraft || valoresDaCand(c);
   const arqs = arquivosDe(c), falta = !c.telefone || !c.cidade || c.area === 'A definir', nf = Object.keys(c.ficha || {}).length;
   const rs = reunioesDe(c.id).slice().sort((a, b) => a.inicio < b.inicio ? 1 : -1), ag = dr.ag || (dr.ag = { data: somaDias(hojeISO(), 1), hora: '09:00', duracao: 30, link: '', obs: '' });
-  return `<h2 class="dt">${esc(c.nome)}</h2><p class="note">${chip(ST_CAND[c.status])} · recebido em ${dtHora(c.criado_em)}${c.origem === 'telegram' ? ' · <span class="chip tg">pelo Telegram</span>' : ''}</p>
+  if (c.foto_caminho) setTimeout(() => mostrarFotoCand(c), 0);
+  return `${c.foto_caminho ? `<div class="cand-foto" id="candFoto" aria-label="Foto de ${esc(c.nome)}"></div>` : ''}<h2 class="dt">${esc(c.nome)}</h2><p class="note">${chip(ST_CAND[c.status])} · recebido em ${dtHora(c.criado_em)}${c.origem === 'telegram' ? ' · <span class="chip tg">pelo Telegram</span>' : ''}</p>
   ${fichaParaLer(c)}
   ${c.experiencia ? `<h3>Experiência</h3><p class="pre">${esc(c.experiencia)}</p>` : ''}${c.mensagem ? `<h3>Mensagem</h3><p class="pre">${esc(c.mensagem)}</p>` : ''}
   <h3>Currículo${arqs.length > 1 ? ` <span class="note">(${arqs.length} páginas)</span>` : ''}</h3>${arqs.length ? `<ul class="arqs">${arqs.map((a, i) => `<li><span>${arqs.length > 1 ? `<b>Página ${i + 1}</b> · ` : ''}<span class="note">${esc(a.nome || 'currículo')}</span></span><button class="btn sm" data-act="cv-ver" data-id="${esc(c.id)}" data-i="${i}">Ver</button><button class="btn ghost sm" data-act="cv-baixar" data-id="${esc(c.id)}" data-i="${i}">Baixar</button></li>`).join('')}</ul>` : '<p class="note">O candidato não chegou a enviar o arquivo.</p>'}
@@ -2660,6 +2684,16 @@ function vEquipeRH(u) {
     <div class="bar" style="margin:10px 0 0"><button class="btn sm" data-act="rhq-add">Criar login</button><button class="btn ghost sm" data-act="rhq-gerar">Gerar senha</button></div></div>`;
 }
 
+const fotosCand = {};
+async function mostrarFotoCand(c) {
+  try { if (!fotosCand[c.foto_caminho]) fotosCand[c.foto_caminho] = URL.createObjectURL(await SB.baixar('rh', c.foto_caminho));
+    const el = $('#candFoto'); if (el) el.innerHTML = `<img src="${fotosCand[c.foto_caminho]}" alt="Foto de ${esc(c.nome)}">`; } catch (e) { }
+}
+// arquivos de currículos substituídos (mesmo CPF): o RH Administrativo apaga da pasta ao abrir o RH
+async function limparArquivosRH() {
+  const u = eu(); if (!u || !ehRHAdm(u)) return;
+  try { const fila = await SB.sel('rh_apagar', 'select=caminho&limit=50'); for (const x of fila) { try { await SB.apagar('rh', x.caminho); } catch (e) { } await SB.del('rh_apagar', { caminho: x.caminho }); } } catch (e) { }
+}
 /* ---------- ações ---------- */
 const AREAS_RH = ['Produção / fábrica', 'Solda e serralheria', 'Pintura', 'Montagem', 'Expedição e logística', 'Motorista', 'Vendas', 'Administrativo / financeiro', 'Marketing', 'Outra área'];
 function arquivosDe(c) { const a = Array.isArray(c.arquivos) ? c.arquivos.filter(x => x && x.caminho) : []; return a.length ? a : c.curriculo_caminho ? [{ caminho: c.curriculo_caminho, nome: c.curriculo_nome, mime: c.curriculo_mime }] : []; }
@@ -3193,6 +3227,7 @@ async function carregarRH() {
     state.rh = { cands: [], reunioes: [], indisponivel: /PGRST205|42P01|does not exist|schema cache/i.test((e.code || '') + ' ' + e.message) };
   }
   if (typeof avisosRH === 'function') avisosRH();
+  if (typeof limparArquivosRH === 'function') limparArquivosRH();
 }
 // registro de ligações e possíveis clientes (administração e vendedores)
 async function carregarCRM() {
@@ -3488,7 +3523,7 @@ const NUCLEO = {
     return antigo.id;
   },
   async salvarCand(id, campos) { const r = await SB.upd('candidaturas', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar esta candidatura.'); await carregarRH(); },
-  async apagarCand(c) { await SB.del('candidaturas', { id: c.id }); for (const k of new Set([c.curriculo_caminho, ...(Array.isArray(c.arquivos) ? c.arquivos.map(x => x && x.caminho) : [])].filter(Boolean))) { try { await SB.apagar('rh', k); } catch (e) { } } await carregarRH(); },
+  async apagarCand(c) { await SB.del('candidaturas', { id: c.id }); for (const k of new Set([c.curriculo_caminho, c.foto_caminho, ...(Array.isArray(c.arquivos) ? c.arquivos.map(x => x && x.caminho) : [])].filter(Boolean))) { try { await SB.apagar('rh', k); } catch (e) { } } await carregarRH(); },
   async agendarReuniao(r, c) {
     const x = await SB.ins('reunioes', [{ ...r, criado_por: SB.id }]);
     if (['novo', 'em_analise'].includes(c.status)) { try { await SB.upd('candidaturas', { id: c.id }, { status: 'entrevista' }); } catch (e) { } }
