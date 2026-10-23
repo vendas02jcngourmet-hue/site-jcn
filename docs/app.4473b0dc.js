@@ -568,7 +568,7 @@ const grelhaDe = p => p.grelha ? GRELHAS[p.grelha] : specDe(p, 'grelha');
 const ehFogao = p => !!grelhaDe(p);
 const ONDE = { loja: ['Adicionar ao carrinho', 'no carrinho'], site: ['Adicionar à sacola', 'na sacola'], venda: ['Adicionar ao pedido', 'no pedido'] };
 const NAV = {
-  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['rh', 'Currículos (RH)'], ['rh-agenda', 'Reuniões do RH'], ['usuarios', 'Usuários']],
+  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['rh', 'Currículos (RH)'], ['rh-agenda', 'Reuniões do RH'], ['avisos', 'Avisos no Telegram'], ['usuarios', 'Usuários']],
   vendedor: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['lojas', 'Contas e-commerce'], ['galeria', 'Galeria de fotos']],
   representante: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']],
   financeiro: [['financeiro', 'Financeiro'], ['pedidos', 'Pedidos']],
@@ -626,14 +626,14 @@ function renderApp() {
   const u = eu(), app = $('#app');
   if (!u) { app.innerHTML = vLogin(); $('.login-art').style.backgroundImage = `url(${IMG.cover})`; return; }
   const nav = NAV[u.papel] || NAV.vendedor; if (!nav.find(n => n[0] === ui.view)) ui.view = nav[0][0];
-  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, rh: vRH, 'rh-agenda': vAgendaRH, 'rh-equipe': vEquipeRH, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
+  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, rh: vRH, 'rh-agenda': vAgendaRH, 'rh-equipe': vEquipeRH, avisos: vAvisos, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
   const selo = id => { const n = id === 'carrinho' ? qtdCarrinho() : (id === 'pedidos' || id === 'financeiro') && ehFin(u) ?  state.pedidos.filter(p => id === 'financeiro' ? ehBoleto(p) && paraConferir(p) : paraConferir(p)).length : 0; return n ? `<span class="badge" aria-label="${n} ${id === 'carrinho' ? 'no carrinho' : id === 'financeiro' ? 'boletos para aprovar' : 'com pagamento para conferir'}">${n}</span>` : ''; };
   app.innerHTML = `<div class="shell">
     <aside class="side">
       <span class="logo on-dark"><b>JCN</b><i>GOURMET</i></span>
       <div class="who"><b>${esc(u.nome)}</b>${esc(PAPEIS[u.papel])}, ${esc(u.empresa)}</div>
       <nav aria-label="Portal">${nav.map(([id, t]) => `<button data-act="nav" data-view="${id}" ${id === ui.view ? 'aria-current="page"' : ''}>${t}${selo(id)}</button>`).join('')}</nav>
-      <div class="bottom"><button data-act="voltar-site">Ver o site</button><button data-act="minha-senha">Trocar senha</button><button data-act="sair">Sair</button></div>
+      <div class="bottom"><button data-act="voltar-site">Ver o site</button>${u.papel !== 'ecommerce' && u.papel !== 'admin' ? `<button data-act="meu-tg">Meu Telegram${meuTG(u) ? ' ✓' : ''}</button>` : ''}<button data-act="minha-senha">Trocar senha</button><button data-act="sair">Sair</button></div>
     </aside>
     <section class="main">${views[ui.view](u)}</section></div>`;
 }
@@ -981,6 +981,7 @@ function renderDrawer() {
     <div class="foot"><button class="btn" data-act="salvar-minha-senha">Trocar senha</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
   if (dr.tipo === 'pedido-site') { const p = (state.daqui || []).find(x => x.id === dr.id); if (!p) return fecharDrawer(); html = dPedidoSite(p, dr); }
   if (dr.tipo === 'meus-site') html = dMeusSite(dr);
+  if (dr.tipo === 'meu-tg') html = u ? dMeuTG(dr, u) : '';
   if (dr.tipo === 'cand') { html = u ? dCand(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'gal-editar') { html = u ? dGalEditar(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'prospect') { html = u ? dProspect(dr, u) : ''; if (!html) return fecharDrawer(); }
@@ -1904,7 +1905,7 @@ const crm = () => state.crm || { prospects: [], ligacoes: [] };
 const prospectDe = id => crm().prospects.find(p => p.id === id);
 const chipRes = k => chip(SITUACOES[k] || [k, '']);
 const ligDe = pid => crm().ligacoes.filter(l => l.prospect_id === pid);
-const novaLig = () => ({ telefone: '', loja: '', comprador: '', cidade: '', uf: 'SP', email: '', resultado: '', tratativa: '', retornar_em: '' });
+const novaLig = () => ({ telefone: '', loja: '', comprador: '', cidade: '', uf: 'SP', email: '', resultado: '', tratativa: '', retornar_em: '', retornar_hora: '' });
 function avisoCRM() {
   return crm().indisponivel ? `<div class="panel"><p style="margin:0"><b>Falta um passo no banco.</b> Rode o arquivo <b>atualizacao-2.sql</b> no Supabase (SQL Editor, colar tudo, Run) para ligar o registro de ligações.</p></div>` : '';
 }
@@ -1917,7 +1918,7 @@ function retornosPendentes(u, soMeus) {
 const linhaLig = (l, mostraVend) => { const p = prospectDe(l.prospect_id) || {}; return `<tr><td>${dataBR(diaDe(l.feita_em))}<div class="note">${horaDe(l.feita_em)}</div></td>
   <td><button class="linkbtn" data-act="abrir-prospect" data-id="${esc(l.prospect_id)}"><b>${esc(p.loja || '—')}</b></button><div class="note">${esc(p.comprador || '')}${p.comprador ? ' · ' : ''}${esc(telFmt(p.telefone || ''))}</div></td>
   <td>${esc(p.cidade || '')}${p.uf ? '/' + esc(p.uf) : ''}</td>${mostraVend ? `<td>${esc(nomeVend(l.vendedor_id))}</td>` : ''}
-  <td>${chipRes(l.resultado)}${l.retornar_em ? `<div class="note">Retornar ${dataBR(l.retornar_em)}</div>` : ''}</td><td class="trat">${esc(l.tratativa)}${orcLink(l)}</td></tr>`; };
+  <td>${chipRes(l.resultado)}${l.retornar_em ? `<div class="note">Retornar ${dataBR(l.retornar_em)}${l.retornar_hora ? ' às ' + l.retornar_hora.slice(0, 5) : ''}</div>` : ''}</td><td class="trat">${esc(l.tratativa)}${orcLink(l)}</td></tr>`; };
 const orcLink = l => orcs().filter(o => o.ligacao_id === l.id).map(o => `<div class="note"><button class="linkbtn" data-act="abrir-orc" data-id="${esc(o.id)}">Orçamento nº ${esc(o.numero)}</button> · ${brl(totalOrc(o))} · ${esc(SIT_ORC[o.situacao][0])}</div>`).join('');
 
 /* ---------- tela: Ligações ---------- */
@@ -1936,7 +1937,9 @@ function vLigacoes(u) {
     <div class="grid-lig">${campo('cidade', 'Cidade')}<label class="field"><span>UF</span><select id="lg-uf" data-lg="uf">${UFS.map(x => `<option ${x === d.uf ? 'selected' : ''}>${x}</option>`).join('')}</select></label>${campo('email', 'E-mail (opcional)', 'type="email"')}</div>
     <fieldset class="res"><legend>Resultado da ligação</legend>${Object.entries(RESULTADOS).map(([k, [t]]) => `<label class="opt-res"><input type="radio" name="lgres" value="${k}" data-lg="resultado" ${d.resultado === k ? 'checked' : ''}> ${t}</label>`).join('')}</fieldset>
     <label class="field"><span>Tratativa: o que foi conversado</span><textarea id="lg-tratativa" data-lg="tratativa" rows="3" placeholder="Ex.: falou com o João, pediu tabela de fogões industriais, vai ver com o sócio.">${esc(d.tratativa)}</textarea></label>
-    <div class="grid-lig" style="margin-top:10px"><label class="field"><span>Retornar em (opcional)</span><input id="lg-retornar_em" type="date" data-lg="retornar_em" value="${esc(d.retornar_em)}" min="${hoje}"></label></div>
+    <div class="grid-ret" style="margin-top:10px"><label class="field"><span>Retornar em (opcional)</span><input id="lg-retornar_em" type="date" data-lg="retornar_em" value="${esc(d.retornar_em)}" min="${hoje}"></label>
+      <label class="field"><span>Às (hora que o cliente pediu)</span><input id="lg-retornar_hora" type="time" data-lg="retornar_hora" value="${esc(d.retornar_hora)}"></label>
+      <p class="note" style="align-self:end;margin:0 0 8px">🔔 Com o dia marcado, o aviso chega no Telegram na hora pedida (sem hora: às 9h).</p></div>
     ${crm().orcIndisponivel ? avisoOrc() : d.orc ? `<div class="orc-box" id="orcLig"><div class="galtop" style="margin:0 0 10px"><h3 style="margin:0">Orçamento desta ligação</h3><button class="linkbtn" data-act="lig-orc-tirar">Tirar o orçamento</button></div>${orcEditor(d.orc, 'lig', false)}</div>`
       : `<div class="bar" style="margin:12px 0 0"><button class="btn ghost sm" data-act="lig-orc">+ Adicionar orçamento</button><span class="note">Monte o orçamento com os itens que a loja pediu.</span></div>`}
     <p class="err" role="alert" id="lgErro" ${ui.ligErro ? '' : 'hidden'}>${esc(ui.ligErro || '')}</p>
@@ -1998,7 +2001,7 @@ function dProspect(dr, u) {
   <div class="bar"><a class="btn sm" href="tel:+55${esc(p.telefone)}">Ligar ${esc(telFmt(p.telefone))}</a><a class="btn ghost sm" href="https://wa.me/55${esc(p.telefone)}" target="_blank" rel="noopener">WhatsApp</a>
     <button class="btn ghost sm" data-act="lig-desta" data-id="${esc(p.id)}">Registrar nova ligação</button></div>
   <h3>Histórico (${ls.length} ${ls.length === 1 ? 'ligação' : 'ligações'})</h3>
-  ${ls.length ? `<ol class="hist">${ls.map(l => `<li><div><b>${dataBR(diaDe(l.feita_em))} ${horaDe(l.feita_em)}</b> · ${esc(nomeVend(l.vendedor_id))} · ${chipRes(l.resultado)}${l.retornar_em ? ` · retornar ${dataBR(l.retornar_em)}` : ''}
+  ${ls.length ? `<ol class="hist">${ls.map(l => `<li><div><b>${dataBR(diaDe(l.feita_em))} ${horaDe(l.feita_em)}</b> · ${esc(nomeVend(l.vendedor_id))} · ${chipRes(l.resultado)}${l.retornar_em ? ` · retornar ${dataBR(l.retornar_em)}${l.retornar_hora ? ' às ' + l.retornar_hora.slice(0, 5) : ''}` : ''}
     ${adm ? `<button class="linkbtn" data-act="lig-apagar" data-id="${esc(l.id)}" data-confirm="Confirmar: apagar ligação">Apagar</button>` : ''}</div><p>${esc(l.tratativa)}</p>${orcLink(l)}</li>`).join('')}</ol>` : '<p class="note">Nenhuma ligação ainda.</p>'}
   ${crm().orcIndisponivel ? '' : `<div class="galtop" style="margin:14px 0 8px"><h3 style="margin:0">Orçamentos (${orcsDe(p.id).length})</h3><button class="btn ghost sm" data-act="orc-novo" data-id="${esc(p.id)}">Novo orçamento</button></div>
   ${orcsDe(p.id).length ? tabelaOrcs(orcsDe(p.id), false) : '<p class="note">Nenhum orçamento para esta loja.</p>'}`}
@@ -2090,6 +2093,7 @@ Object.assign(acts, {
     if (d.cidade.trim().length < 2) return erro('Informe a cidade.');
     if (!d.resultado) return erro('Escolha o resultado da ligação.');
     if (!d.tratativa.trim()) return erro('Escreva a tratativa: o que foi conversado.');
+    if (d.retornar_hora && !d.retornar_em) return erro('Informe também o dia do retorno.');
     if (d.resultado === 'retornar' && !d.retornar_em) return erro('Informe quando retornar.');
     if (d.orc) { const m = problemaOrc(d.orc); if (m) { if (/motivo/.test(m)) d.orc.aba = 'motivo'; return erro('Orçamento: ' + m); } }
     ui.ocupado = true; const bt = $('[data-act=lig-salvar]'); if (bt) { bt.disabled = true; bt.textContent = 'Salvando…'; }
@@ -2397,6 +2401,88 @@ document.addEventListener('input', ev => {
   if (t.dataset && t.dataset.ag && ui.drawer && ui.drawer.ag) ui.drawer.ag[t.dataset.ag] = t.value;
 });
 document.addEventListener('change', ev => { const t = ev.target; if (t.dataset && t.dataset.cd && ui.drawer && ui.drawer.draft) ui.drawer.draft[t.dataset.cd] = t.value; if (t.dataset && t.dataset.ag && ui.drawer && ui.drawer.ag) ui.drawer.ag[t.dataset.ag] = t.value; });
+
+/* ---------- Avisos no Telegram ----------
+   O banco manda as mensagens pelo robô da JCN (vendas, financeiro, RH, retornos de ligação e resumo das 8h).
+   Aqui a administração guarda o código do robô, liga grupos e pessoas e escolhe o que cada um recebe.
+   Cada pessoa da equipe também pode ligar o próprio Telegram para os avisos pessoais. */
+const SETORES_TG = { vendas: 'Vendas', financeiro: 'Financeiro', rh: 'RH', tudo: 'Tudo' };
+const tg = () => state.tg || { destinos: [], status: null };
+async function carregarTG() {
+  const p = papelAtual(); if (!p || p === 'ecommerce') { state.tg = { destinos: [], status: null }; return; }
+  try {
+    const [d, st] = await Promise.all([selTudo('tg_destinos', 'select=*&order=criado_em.asc,id.asc'), p === 'admin' ? SB.rpc('tg_status') : null]);
+    state.tg = { destinos: d, status: st };
+  } catch (e) { if (e.rede) throw e; state.tg = { destinos: [], status: null, indisponivel: true }; }
+}
+const meuTG = u => tg().destinos.find(d => d.perfil_id === u.id && d.ativo);
+function blocoCodigo(c) {
+  return c ? `<div class="tg-cod" role="status"><p>No Telegram, abra o robô da JCN${c.grupo ? ' dentro do grupo' : ''} e envie esta mensagem:</p>
+    <p class="tg-cod-txt"><code>/start ${esc(c.codigo)}</code> <button class="btn ghost sm" data-act="tg-copiar" data-t="/start ${esc(c.codigo)}">Copiar</button></p>
+    <p class="note">Em até 1 minuto o robô responde "Pronto!" e a ligação aparece aqui. O código vale por 2 dias.</p></div>` : '';
+}
+function vAvisos(u) {
+  if (u.papel !== 'admin') return '';
+  const st = tg().status || {}, ds = tg().destinos, f = ui.tgNovo || (ui.tgNovo = { nome: '', setores: ['vendas'], perfil: '', grupo: true });
+  const pessoas = state.usuarios.filter(x => x.papel !== 'ecommerce' && x.ativo);
+  if (tg().indisponivel) return `<h1>Avisos no Telegram</h1><div class="panel"><p style="margin:0"><b>Falta um passo no banco.</b> Rode o arquivo <b>atualizacao-5.sql</b> no Supabase (SQL Editor, colar tudo, Run).</p></div>`;
+  return `<h1>Avisos no Telegram</h1><p class="sub">O site manda avisos pelo robô da JCN no Telegram: vendas, financeiro, RH, retornos de ligação na hora marcada e um resumo todo dia às 8h.</p>
+  <div class="panel"><h2>1. Robô da JCN ${st.token ? chip(['Ligado', 'ok']) : chip(['Falta o código', 'warn'])}</h2>
+    ${st.token ? `<p class="note" style="margin:0 0 8px">Enviados nas últimas 24 horas: ${st.enviados_24h || 0}${st.falhas_24h ? ` · <b class="bad-t">falhas: ${st.falhas_24h}</b>` : ''} · na fila: ${st.pendentes || 0}${st.cron ? '' : ' · <b class="bad-t">o relógio de envio não está ligado: rode de novo o atualizacao-5.sql</b>'}</p>
+      ${st.ultimo_erro ? `<p class="note">Último erro do Telegram: ${esc(String(st.ultimo_erro).slice(0, 200))}</p>` : ''}` : `<ol class="tg-passos"><li>No Telegram, procure <b>@BotFather</b> e envie <code>/newbot</code>.</li><li>Dê um nome (ex.: <b>JCN Gourmet Avisos</b>) e um usuário terminado em <b>bot</b> (ex.: <b>jcngourmet_avisos_bot</b>).</li><li>O BotFather responde com um código parecido com <code>123456789:ABCdef...</code>. Cole aqui embaixo.</li></ol>`}
+    <div class="bar" style="margin:8px 0 0"><input class="inp" style="flex:1 1 280px;width:auto" id="tgToken" type="password" autocomplete="off" placeholder="${st.token ? 'Trocar o código do robô' : 'Código do robô (do BotFather)'}"><button class="btn sm" data-act="tg-token">${st.token ? 'Trocar código' : 'Salvar código'}</button></div>
+    <p class="note" style="margin:6px 0 0">O código fica guardado no cofre do Supabase e não aparece no site depois de salvo.</p></div>
+  <div class="panel"><h2>2. Ligar um grupo ou uma pessoa</h2>
+    <p class="note" style="margin:0 0 10px">Dica: crie no Telegram um grupo por setor (ex.: "JCN Vendas", "JCN Financeiro", "JCN RH"), adicione o robô ao grupo e ligue o grupo aqui. Todos do grupo recebem.</p>
+    <div class="grid2"><label class="field"><span>Nome (para você reconhecer)</span><input id="tgNome" value="${esc(f.nome)}" placeholder="Ex.: Grupo Financeiro"></label>
+      <label class="field"><span>É de uma pessoa da equipe? (para os avisos pessoais dela)</span><select id="tgPerfil"><option value="">Não, é um grupo</option>${pessoas.map(x => `<option value="${esc(x.id)}" ${x.id === f.perfil ? 'selected' : ''}>${esc(x.nome)} (${esc(PAPEIS[x.papel])})</option>`).join('')}</select></label></div>
+    <fieldset class="res"><legend>O que recebe</legend>${Object.entries(SETORES_TG).map(([k, t]) => `<label class="opt-res"><input type="checkbox" class="tgSet" value="${k}" ${f.setores.includes(k) ? 'checked' : ''}> ${t}</label>`).join('')}</fieldset>
+    <button class="btn sm" data-act="tg-codigo" ${st.token ? '' : 'disabled'}>Gerar código</button>${st.token ? '' : ' <span class="note">Primeiro salve o código do robô.</span>'}
+    ${blocoCodigo(ui.tgCod)}</div>
+  <div class="panel"><h2>3. Quem recebe (${ds.length})</h2>
+    ${ds.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>Tipo</th><th>Recebe</th><th>Avisos pessoais de</th><th>Ativo</th><th></th></tr></thead><tbody>
+      ${ds.map(d => `<tr><td><b>${esc(d.nome)}</b></td><td>${d.tipo === 'grupo' ? 'Grupo' : 'Pessoa'}</td>
+        <td>${Object.entries(SETORES_TG).map(([k, t]) => `<label class="check tg-ck"><input type="checkbox" data-chg="tg-set" data-id="${esc(d.id)}" data-k="${k}" ${d.setores.includes(k) ? 'checked' : ''}> ${t}</label>`).join('')}</td>
+        <td>${d.perfil_id ? esc((user(d.perfil_id) || {}).nome || '—') : '—'}</td>
+        <td><input type="checkbox" class="toggle" data-chg="tg-ativo" data-id="${esc(d.id)}" ${d.ativo ? 'checked' : ''} aria-label="${esc(d.nome)} ativo"></td>
+        <td><button class="btn ghost sm" data-act="tg-teste" data-id="${esc(d.id)}">Enviar teste</button> <button class="btn danger sm" data-act="tg-rem" data-id="${esc(d.id)}" data-confirm="Confirmar remover">Remover</button></td></tr>`).join('')}</tbody></table></div>`
+      : '<p class="note" style="margin:0">Ninguém ligado ainda.</p>'}</div>
+  <div class="panel"><h2>Quais avisos são enviados</h2><ul class="tg-lista">
+    <li><b>Vendas:</b> pedido novo (venda interna, e-commerce e loja do site), pagamento confirmado, pedido enviado, loja que virou cliente.</li>
+    <li><b>Financeiro:</b> PIX para conferir, boleto para aprovar e, às 8h, as parcelas que vencem no dia ou estão atrasadas.</li>
+    <li><b>RH:</b> currículo novo, reunião em 1 hora e em 15 minutos, e às 8h as reuniões do dia.</li>
+    <li><b>Pessoais:</b> o retorno de ligação na hora que o cliente pediu, os retornos do dia às 8h, e o pagamento confirmado ou recusado dos pedidos da pessoa. Quem não ligou o próprio Telegram recebe isso no grupo de Vendas.</li></ul></div>`;
+}
+function dMeuTG(dr, u) {
+  const m = meuTG(u);
+  return `<h2 class="dt">Meus avisos no Telegram</h2>
+  ${m ? `<p>${chip(['Ligado', 'ok'])} Os seus avisos pessoais chegam no Telegram (${esc(m.nome)}).</p>` : '<p>Ligue o seu Telegram para receber os seus avisos: o retorno de ligação na hora que o cliente pediu, os retornos do dia às 8h e o pagamento dos seus pedidos.</p>'}
+  ${m ? '' : `<button class="btn" data-act="tg-meu-codigo">Gerar meu código</button>${blocoCodigo(dr.cod)}`}
+  <div class="foot"><button class="btn ghost" data-act="fechar">Fechar</button></div>`;
+}
+Object.assign(acts, {
+  'tg-token': async () => {
+    const v = ($('#tgToken') || {}).value || ''; if (!v.trim()) return toast('Cole o código do robô que o BotFather mandou.');
+    try { await API.tgToken(v.trim()); toast('Código do robô salvo.'); renderApp(); } catch (err) { toast(msgErro(err)); }
+  },
+  'tg-codigo': async () => {
+    const nome = $('#tgNome').value.trim(), perfil = $('#tgPerfil').value, setores = $$('.tgSet:checked').map(x => x.value);
+    ui.tgNovo = { nome, perfil, setores };
+    if (!nome && !perfil) return toast('Dê um nome para reconhecer este grupo.');
+    if (!setores.length && !perfil) return toast('Marque o que este grupo recebe.');
+    try { const c = await API.tgCodigo(nome || (user(perfil) || {}).nome, setores, perfil || null); ui.tgCod = { codigo: c, grupo: !perfil }; renderApp(); }
+    catch (err) { toast(msgErro(err)); }
+  },
+  'tg-meu-codigo': async () => { const u = eu(); try { const c = await API.tgCodigo(u.nome, [], u.id); ui.drawer.cod = { codigo: c }; renderDrawer(); } catch (err) { toast(msgErro(err)); } },
+  'tg-copiar': e => { try { navigator.clipboard.writeText(e.dataset.t); toast('Copiado.'); } catch (x) { toast(e.dataset.t); } },
+  'tg-teste': async e => { try { await API.tgTeste(e.dataset.id); toast('Mensagem de teste na fila: chega em até 1 minuto.'); } catch (err) { toast(msgErro(err)); } },
+  'tg-rem': async e => { try { await API.tgSalvar(e.dataset.id, null); renderApp(); toast('Removido.'); } catch (err) { toast(msgErro(err)); } },
+  'meu-tg': () => { ui.drawer = { tipo: 'meu-tg' }; renderDrawer(); }
+});
+Object.assign(chgs, {
+  'tg-set': async e => { const d = tg().destinos.find(x => x.id === e.dataset.id); if (!d) return; const s = new Set(d.setores); e.checked ? s.add(e.dataset.k) : s.delete(e.dataset.k); try { await API.tgSalvar(d.id, { setores: [...s] }); renderApp(); } catch (err) { toast(msgErro(err)); } },
+  'tg-ativo': async e => { try { await API.tgSalvar(e.dataset.id, { ativo: e.checked }); renderApp(); } catch (err) { toast(msgErro(err)); } }
+});
 
 /* ---------- Orçamentos das ligações (administração e vendedores) ----------
    O vendedor monta o orçamento na hora da ligação (ou depois, pela ficha da loja), com os itens e o preço
@@ -2732,7 +2818,7 @@ function pedidoDe(r, itens, anexos, parcelas) {
 }
 async function carregarPedidos() {
   if (!papelAtual()) { state.pedidos = []; espelho.pedidos = []; return carregarPedidosDoSite(); }
-  if (ehRH(papelAtual())) { state.pedidos = []; espelho.pedidos = []; return carregarRH(); }     // RH não vê nada de vendas
+  if (ehRH(papelAtual())) { state.pedidos = []; espelho.pedidos = []; await carregarTG(); return carregarRH(); }     // RH não vê nada de vendas
   const [peds, itens, anexos, parcelas] = await Promise.all([selTudo('pedidos', 'select=*&order=numero.desc'), selTudo('itens_pedido', 'select=*&order=id.asc'), selTudo('anexos', 'select=*&order=enviado_em.asc,id.asc'), selTudo('parcelas_boleto', 'select=*&order=pedido_id.asc,numero.asc')]);
   const por = (l, k) => { const m = {}; l.forEach(x => (m[x[k]] = m[x[k]] || []).push(x)); return m; };
   const it = por(itens, 'pedido_id'), an = por(anexos, 'pedido_id'), pa = por(parcelas, 'pedido_id');
@@ -2744,6 +2830,7 @@ async function carregarPedidos() {
   await carregarPedidosDoSite();
   await carregarCRM();
   if (papelAtual() === 'admin') await carregarRH();
+  await carregarTG();
 }
 // RH: candidaturas do "Trabalhe conosco" e reuniões
 const ehRH = papel => papel === 'rh_admin' || papel === 'rh_assistente';
@@ -3058,6 +3145,10 @@ const NUCLEO = {
     await carregarRH(); return x[0];
   },
   async salvarReuniao(id, campos) { const r = await SB.upd('reunioes', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar esta reunião.'); await carregarRH(); },
+  async tgToken(t) { await SB.rpc('tg_salvar_token', { p_token: t }); await carregarTG(); },
+  async tgCodigo(nome, setores, perfil) { return SB.rpc('tg_codigo', { p_nome: nome, p_setores: setores, p_perfil: perfil }); },
+  async tgTeste(id) { await SB.rpc('tg_testar', { p_destino: id }); },
+  async tgSalvar(id, campos) { if (campos === null) await SB.del('tg_destinos', { id }); else await SB.upd('tg_destinos', { id }, campos); await carregarTG(); },
   async registrarLigacao(d) { const r = await SB.rpc('registrar_ligacao', { p: d }); await carregarCRM(); return r; },
   async salvarProspect(id, campos) { const r = await SB.upd('prospects', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar este cadastro.'); await carregarCRM(); },
   async apagarLigacao(id) { await SB.del('ligacoes', { id }); await carregarCRM(); },
@@ -3081,13 +3172,13 @@ function ligarRelogio() {
     const a = document.activeElement;
     if (a && a.matches && a.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select')) return;      // não mexe na tela de quem está digitando
     naFila(async () => {
-      const antes = JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm, state.rh]), dentro = !!sessao;
+      const antes = JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm, state.rh, (state.tg || {}).destinos]), dentro = !!sessao;
       try { if (dentro) await carregarContas(); await carregarPedidos(); } catch (e) { return; }
       if (dentro && sessao && !eu()) {            // a conta foi desativada enquanto a pessoa estava dentro
         try { await NUCLEO.sair(); } catch (e) { sessao = null; }
         ui.erro = 'Esta conta foi desativada. Fale com a administração da JCN.'; fecharDrawer(); if (!$('#app').hidden) renderApp(); return;
       }
-      if (antes !== JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm, state.rh])) redesenhar();
+      if (antes !== JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm, state.rh, (state.tg || {}).destinos])) redesenhar();
     });
   }, (CONFIG.segundos_entre_atualizacoes || 30) * 1000);
 }

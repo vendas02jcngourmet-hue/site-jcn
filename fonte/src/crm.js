@@ -16,7 +16,7 @@ const crm = () => state.crm || { prospects: [], ligacoes: [] };
 const prospectDe = id => crm().prospects.find(p => p.id === id);
 const chipRes = k => chip(SITUACOES[k] || [k, '']);
 const ligDe = pid => crm().ligacoes.filter(l => l.prospect_id === pid);
-const novaLig = () => ({ telefone: '', loja: '', comprador: '', cidade: '', uf: 'SP', email: '', resultado: '', tratativa: '', retornar_em: '' });
+const novaLig = () => ({ telefone: '', loja: '', comprador: '', cidade: '', uf: 'SP', email: '', resultado: '', tratativa: '', retornar_em: '', retornar_hora: '' });
 function avisoCRM() {
   return crm().indisponivel ? `<div class="panel"><p style="margin:0"><b>Falta um passo no banco.</b> Rode o arquivo <b>atualizacao-2.sql</b> no Supabase (SQL Editor, colar tudo, Run) para ligar o registro de ligações.</p></div>` : '';
 }
@@ -29,7 +29,7 @@ function retornosPendentes(u, soMeus) {
 const linhaLig = (l, mostraVend) => { const p = prospectDe(l.prospect_id) || {}; return `<tr><td>${dataBR(diaDe(l.feita_em))}<div class="note">${horaDe(l.feita_em)}</div></td>
   <td><button class="linkbtn" data-act="abrir-prospect" data-id="${esc(l.prospect_id)}"><b>${esc(p.loja || '—')}</b></button><div class="note">${esc(p.comprador || '')}${p.comprador ? ' · ' : ''}${esc(telFmt(p.telefone || ''))}</div></td>
   <td>${esc(p.cidade || '')}${p.uf ? '/' + esc(p.uf) : ''}</td>${mostraVend ? `<td>${esc(nomeVend(l.vendedor_id))}</td>` : ''}
-  <td>${chipRes(l.resultado)}${l.retornar_em ? `<div class="note">Retornar ${dataBR(l.retornar_em)}</div>` : ''}</td><td class="trat">${esc(l.tratativa)}${orcLink(l)}</td></tr>`; };
+  <td>${chipRes(l.resultado)}${l.retornar_em ? `<div class="note">Retornar ${dataBR(l.retornar_em)}${l.retornar_hora ? ' às ' + l.retornar_hora.slice(0, 5) : ''}</div>` : ''}</td><td class="trat">${esc(l.tratativa)}${orcLink(l)}</td></tr>`; };
 const orcLink = l => orcs().filter(o => o.ligacao_id === l.id).map(o => `<div class="note"><button class="linkbtn" data-act="abrir-orc" data-id="${esc(o.id)}">Orçamento nº ${esc(o.numero)}</button> · ${brl(totalOrc(o))} · ${esc(SIT_ORC[o.situacao][0])}</div>`).join('');
 
 /* ---------- tela: Ligações ---------- */
@@ -48,7 +48,9 @@ function vLigacoes(u) {
     <div class="grid-lig">${campo('cidade', 'Cidade')}<label class="field"><span>UF</span><select id="lg-uf" data-lg="uf">${UFS.map(x => `<option ${x === d.uf ? 'selected' : ''}>${x}</option>`).join('')}</select></label>${campo('email', 'E-mail (opcional)', 'type="email"')}</div>
     <fieldset class="res"><legend>Resultado da ligação</legend>${Object.entries(RESULTADOS).map(([k, [t]]) => `<label class="opt-res"><input type="radio" name="lgres" value="${k}" data-lg="resultado" ${d.resultado === k ? 'checked' : ''}> ${t}</label>`).join('')}</fieldset>
     <label class="field"><span>Tratativa: o que foi conversado</span><textarea id="lg-tratativa" data-lg="tratativa" rows="3" placeholder="Ex.: falou com o João, pediu tabela de fogões industriais, vai ver com o sócio.">${esc(d.tratativa)}</textarea></label>
-    <div class="grid-lig" style="margin-top:10px"><label class="field"><span>Retornar em (opcional)</span><input id="lg-retornar_em" type="date" data-lg="retornar_em" value="${esc(d.retornar_em)}" min="${hoje}"></label></div>
+    <div class="grid-ret" style="margin-top:10px"><label class="field"><span>Retornar em (opcional)</span><input id="lg-retornar_em" type="date" data-lg="retornar_em" value="${esc(d.retornar_em)}" min="${hoje}"></label>
+      <label class="field"><span>Às (hora que o cliente pediu)</span><input id="lg-retornar_hora" type="time" data-lg="retornar_hora" value="${esc(d.retornar_hora)}"></label>
+      <p class="note" style="align-self:end;margin:0 0 8px">🔔 Com o dia marcado, o aviso chega no Telegram na hora pedida (sem hora: às 9h).</p></div>
     ${crm().orcIndisponivel ? avisoOrc() : d.orc ? `<div class="orc-box" id="orcLig"><div class="galtop" style="margin:0 0 10px"><h3 style="margin:0">Orçamento desta ligação</h3><button class="linkbtn" data-act="lig-orc-tirar">Tirar o orçamento</button></div>${orcEditor(d.orc, 'lig', false)}</div>`
       : `<div class="bar" style="margin:12px 0 0"><button class="btn ghost sm" data-act="lig-orc">+ Adicionar orçamento</button><span class="note">Monte o orçamento com os itens que a loja pediu.</span></div>`}
     <p class="err" role="alert" id="lgErro" ${ui.ligErro ? '' : 'hidden'}>${esc(ui.ligErro || '')}</p>
@@ -110,7 +112,7 @@ function dProspect(dr, u) {
   <div class="bar"><a class="btn sm" href="tel:+55${esc(p.telefone)}">Ligar ${esc(telFmt(p.telefone))}</a><a class="btn ghost sm" href="https://wa.me/55${esc(p.telefone)}" target="_blank" rel="noopener">WhatsApp</a>
     <button class="btn ghost sm" data-act="lig-desta" data-id="${esc(p.id)}">Registrar nova ligação</button></div>
   <h3>Histórico (${ls.length} ${ls.length === 1 ? 'ligação' : 'ligações'})</h3>
-  ${ls.length ? `<ol class="hist">${ls.map(l => `<li><div><b>${dataBR(diaDe(l.feita_em))} ${horaDe(l.feita_em)}</b> · ${esc(nomeVend(l.vendedor_id))} · ${chipRes(l.resultado)}${l.retornar_em ? ` · retornar ${dataBR(l.retornar_em)}` : ''}
+  ${ls.length ? `<ol class="hist">${ls.map(l => `<li><div><b>${dataBR(diaDe(l.feita_em))} ${horaDe(l.feita_em)}</b> · ${esc(nomeVend(l.vendedor_id))} · ${chipRes(l.resultado)}${l.retornar_em ? ` · retornar ${dataBR(l.retornar_em)}${l.retornar_hora ? ' às ' + l.retornar_hora.slice(0, 5) : ''}` : ''}
     ${adm ? `<button class="linkbtn" data-act="lig-apagar" data-id="${esc(l.id)}" data-confirm="Confirmar: apagar ligação">Apagar</button>` : ''}</div><p>${esc(l.tratativa)}</p>${orcLink(l)}</li>`).join('')}</ol>` : '<p class="note">Nenhuma ligação ainda.</p>'}
   ${crm().orcIndisponivel ? '' : `<div class="galtop" style="margin:14px 0 8px"><h3 style="margin:0">Orçamentos (${orcsDe(p.id).length})</h3><button class="btn ghost sm" data-act="orc-novo" data-id="${esc(p.id)}">Novo orçamento</button></div>
   ${orcsDe(p.id).length ? tabelaOrcs(orcsDe(p.id), false) : '<p class="note">Nenhum orçamento para esta loja.</p>'}`}
@@ -202,6 +204,7 @@ Object.assign(acts, {
     if (d.cidade.trim().length < 2) return erro('Informe a cidade.');
     if (!d.resultado) return erro('Escolha o resultado da ligação.');
     if (!d.tratativa.trim()) return erro('Escreva a tratativa: o que foi conversado.');
+    if (d.retornar_hora && !d.retornar_em) return erro('Informe também o dia do retorno.');
     if (d.resultado === 'retornar' && !d.retornar_em) return erro('Informe quando retornar.');
     if (d.orc) { const m = problemaOrc(d.orc); if (m) { if (/motivo/.test(m)) d.orc.aba = 'motivo'; return erro('Orçamento: ' + m); } }
     ui.ocupado = true; const bt = $('[data-act=lig-salvar]'); if (bt) { bt.disabled = true; bt.textContent = 'Salvando…'; }

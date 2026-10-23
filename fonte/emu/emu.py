@@ -135,9 +135,11 @@ def r_rpc(fn):
         info = sql("select proretset::int || '|' || prorettype::regtype::text from pg_proc where proname = :'f' and pronamespace = 'public'::regnamespace", {'f': fn})
         if not info: raise ErroPG('42883', f'Could not find the function public.{fn}')
         conj, tipo = info.split('\n')[0].split('|'); b = request.get_json(force=True, silent=True) or {}; v = {}; ar = []
+        tipos = dict(x.split('|') for x in sql("select unnest(proargnames) || '|' || unnest(proargtypes::regtype[]::text[]) from pg_proc where proname = :'f' and pronamespace = 'public'::regnamespace", {'f': fn}).split('\n') if '|' in x)
         for k, x in b.items():
             if not ID.match(k): raise ErroPG('42883', 'argumento inválido')
             if x is None: ar.append(f'{k} => null'); continue
+            if isinstance(x, list) and tipos.get(k, '').endswith('[]'): v['a_' + k] = '{' + ','.join('"' + str(i).replace('\\', '\\\\').replace('"', '\\"') + '"' for i in x) + '}'; ar.append(f"{k} => :'a_{k}'"); continue
             v['a_' + k] = json.dumps(x, ensure_ascii=False) if isinstance(x, (dict, list)) else ('true' if x is True else 'false' if x is False else str(x))
             ar.append(f"{k} => :'a_{k}'")
         ch = f"public.{fn}({', '.join(ar)})"

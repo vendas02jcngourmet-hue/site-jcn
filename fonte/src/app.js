@@ -29,7 +29,7 @@ const grelhaDe = p => p.grelha ? GRELHAS[p.grelha] : specDe(p, 'grelha');
 const ehFogao = p => !!grelhaDe(p);
 const ONDE = { loja: ['Adicionar ao carrinho', 'no carrinho'], site: ['Adicionar à sacola', 'na sacola'], venda: ['Adicionar ao pedido', 'no pedido'] };
 const NAV = {
-  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['rh', 'Currículos (RH)'], ['rh-agenda', 'Reuniões do RH'], ['usuarios', 'Usuários']],
+  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['rh', 'Currículos (RH)'], ['rh-agenda', 'Reuniões do RH'], ['avisos', 'Avisos no Telegram'], ['usuarios', 'Usuários']],
   vendedor: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['lojas', 'Contas e-commerce'], ['galeria', 'Galeria de fotos']],
   representante: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']],
   financeiro: [['financeiro', 'Financeiro'], ['pedidos', 'Pedidos']],
@@ -87,14 +87,14 @@ function renderApp() {
   const u = eu(), app = $('#app');
   if (!u) { app.innerHTML = vLogin(); $('.login-art').style.backgroundImage = `url(${IMG.cover})`; return; }
   const nav = NAV[u.papel] || NAV.vendedor; if (!nav.find(n => n[0] === ui.view)) ui.view = nav[0][0];
-  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, rh: vRH, 'rh-agenda': vAgendaRH, 'rh-equipe': vEquipeRH, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
+  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, rh: vRH, 'rh-agenda': vAgendaRH, 'rh-equipe': vEquipeRH, avisos: vAvisos, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
   const selo = id => { const n = id === 'carrinho' ? qtdCarrinho() : (id === 'pedidos' || id === 'financeiro') && ehFin(u) ?  state.pedidos.filter(p => id === 'financeiro' ? ehBoleto(p) && paraConferir(p) : paraConferir(p)).length : 0; return n ? `<span class="badge" aria-label="${n} ${id === 'carrinho' ? 'no carrinho' : id === 'financeiro' ? 'boletos para aprovar' : 'com pagamento para conferir'}">${n}</span>` : ''; };
   app.innerHTML = `<div class="shell">
     <aside class="side">
       <span class="logo on-dark"><b>JCN</b><i>GOURMET</i></span>
       <div class="who"><b>${esc(u.nome)}</b>${esc(PAPEIS[u.papel])}, ${esc(u.empresa)}</div>
       <nav aria-label="Portal">${nav.map(([id, t]) => `<button data-act="nav" data-view="${id}" ${id === ui.view ? 'aria-current="page"' : ''}>${t}${selo(id)}</button>`).join('')}</nav>
-      <div class="bottom"><button data-act="voltar-site">Ver o site</button><button data-act="minha-senha">Trocar senha</button><button data-act="sair">Sair</button></div>
+      <div class="bottom"><button data-act="voltar-site">Ver o site</button>${u.papel !== 'ecommerce' && u.papel !== 'admin' ? `<button data-act="meu-tg">Meu Telegram${meuTG(u) ? ' ✓' : ''}</button>` : ''}<button data-act="minha-senha">Trocar senha</button><button data-act="sair">Sair</button></div>
     </aside>
     <section class="main">${views[ui.view](u)}</section></div>`;
 }
@@ -442,6 +442,7 @@ function renderDrawer() {
     <div class="foot"><button class="btn" data-act="salvar-minha-senha">Trocar senha</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
   if (dr.tipo === 'pedido-site') { const p = (state.daqui || []).find(x => x.id === dr.id); if (!p) return fecharDrawer(); html = dPedidoSite(p, dr); }
   if (dr.tipo === 'meus-site') html = dMeusSite(dr);
+  if (dr.tipo === 'meu-tg') html = u ? dMeuTG(dr, u) : '';
   if (dr.tipo === 'cand') { html = u ? dCand(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'gal-editar') { html = u ? dGalEditar(dr, u) : ''; if (!html) return fecharDrawer(); }
   if (dr.tipo === 'prospect') { html = u ? dProspect(dr, u) : ''; if (!html) return fecharDrawer(); }

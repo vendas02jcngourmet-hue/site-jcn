@@ -103,7 +103,7 @@ function pedidoDe(r, itens, anexos, parcelas) {
 }
 async function carregarPedidos() {
   if (!papelAtual()) { state.pedidos = []; espelho.pedidos = []; return carregarPedidosDoSite(); }
-  if (ehRH(papelAtual())) { state.pedidos = []; espelho.pedidos = []; return carregarRH(); }     // RH não vê nada de vendas
+  if (ehRH(papelAtual())) { state.pedidos = []; espelho.pedidos = []; await carregarTG(); return carregarRH(); }     // RH não vê nada de vendas
   const [peds, itens, anexos, parcelas] = await Promise.all([selTudo('pedidos', 'select=*&order=numero.desc'), selTudo('itens_pedido', 'select=*&order=id.asc'), selTudo('anexos', 'select=*&order=enviado_em.asc,id.asc'), selTudo('parcelas_boleto', 'select=*&order=pedido_id.asc,numero.asc')]);
   const por = (l, k) => { const m = {}; l.forEach(x => (m[x[k]] = m[x[k]] || []).push(x)); return m; };
   const it = por(itens, 'pedido_id'), an = por(anexos, 'pedido_id'), pa = por(parcelas, 'pedido_id');
@@ -115,6 +115,7 @@ async function carregarPedidos() {
   await carregarPedidosDoSite();
   await carregarCRM();
   if (papelAtual() === 'admin') await carregarRH();
+  await carregarTG();
 }
 // RH: candidaturas do "Trabalhe conosco" e reuniões
 const ehRH = papel => papel === 'rh_admin' || papel === 'rh_assistente';
@@ -429,6 +430,10 @@ const NUCLEO = {
     await carregarRH(); return x[0];
   },
   async salvarReuniao(id, campos) { const r = await SB.upd('reunioes', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar esta reunião.'); await carregarRH(); },
+  async tgToken(t) { await SB.rpc('tg_salvar_token', { p_token: t }); await carregarTG(); },
+  async tgCodigo(nome, setores, perfil) { return SB.rpc('tg_codigo', { p_nome: nome, p_setores: setores, p_perfil: perfil }); },
+  async tgTeste(id) { await SB.rpc('tg_testar', { p_destino: id }); },
+  async tgSalvar(id, campos) { if (campos === null) await SB.del('tg_destinos', { id }); else await SB.upd('tg_destinos', { id }, campos); await carregarTG(); },
   async registrarLigacao(d) { const r = await SB.rpc('registrar_ligacao', { p: d }); await carregarCRM(); return r; },
   async salvarProspect(id, campos) { const r = await SB.upd('prospects', { id }, campos); if (!r.length) throw new Error('Você não tem permissão para alterar este cadastro.'); await carregarCRM(); },
   async apagarLigacao(id) { await SB.del('ligacoes', { id }); await carregarCRM(); },
@@ -452,13 +457,13 @@ function ligarRelogio() {
     const a = document.activeElement;
     if (a && a.matches && a.matches('input:not([type=checkbox]):not([type=radio]):not([type=file]),textarea,select')) return;      // não mexe na tela de quem está digitando
     naFila(async () => {
-      const antes = JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm, state.rh]), dentro = !!sessao;
+      const antes = JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm, state.rh, (state.tg || {}).destinos]), dentro = !!sessao;
       try { if (dentro) await carregarContas(); await carregarPedidos(); } catch (e) { return; }
       if (dentro && sessao && !eu()) {            // a conta foi desativada enquanto a pessoa estava dentro
         try { await NUCLEO.sair(); } catch (e) { sessao = null; }
         ui.erro = 'Esta conta foi desativada. Fale com a administração da JCN.'; fecharDrawer(); if (!$('#app').hidden) renderApp(); return;
       }
-      if (antes !== JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm, state.rh])) redesenhar();
+      if (antes !== JSON.stringify([state.pedidos, state.usuarios, state.daqui, state.crm, state.rh, (state.tg || {}).destinos])) redesenhar();
     });
   }, (CONFIG.segundos_entre_atualizacoes || 30) * 1000);
 }
