@@ -43,11 +43,24 @@ function vAvisos(u) {
         <td><input type="checkbox" class="toggle" data-chg="tg-ativo" data-id="${esc(d.id)}" ${d.ativo ? 'checked' : ''} aria-label="${esc(d.nome)} ativo"></td>
         <td><button class="btn ghost sm" data-act="tg-teste" data-id="${esc(d.id)}">Enviar teste</button> <button class="btn danger sm" data-act="tg-rem" data-id="${esc(d.id)}" data-confirm="Confirmar remover">Remover</button></td></tr>`).join('')}</tbody></table></div>`
       : '<p class="note" style="margin:0">Ninguém ligado ainda.</p>'}</div>
+  ${painelCvTG(st, ds)}
   <div class="panel"><h2>Quais avisos são enviados</h2><ul class="tg-lista">
     <li><b>Vendas:</b> pedido novo (venda interna, e-commerce e loja do site), pagamento confirmado, pedido enviado, loja que virou cliente.</li>
     <li><b>Financeiro:</b> PIX para conferir, boleto para aprovar e, às 8h, as parcelas que vencem no dia ou estão atrasadas.</li>
     <li><b>RH:</b> currículo novo, reunião em 1 hora e em 15 minutos, e às 8h as reuniões do dia.</li>
     <li><b>Pessoais:</b> o retorno de ligação na hora que o cliente pediu, os retornos do dia às 8h, e o pagamento confirmado ou recusado dos pedidos da pessoa. Quem não ligou o próprio Telegram recebe isso no grupo de Vendas.</li></ul></div>`;
+}
+// currículos mandados em foto no grupo do RH: o que falta e se a função do Supabase está respondendo
+function painelCvTG(st, ds) {
+  const temRH = ds.some(d => d.ativo && (d.setores.includes('rh') || d.setores.includes('tudo'))), cv = st.cv, s = cv && cv.status;
+  const est = !cv ? ['Ainda não chegou nenhuma foto', ''] : s >= 200 && s < 300 ? ['Funcionando', 'ok'] : s === 404 ? ['Falta criar a função', 'warn'] : s === 401 ? ['Falta desligar a verificação de JWT', 'warn'] : s ? ['A função respondeu com erro ' + s, 'bad'] : ['Esperando a resposta', 'info'];
+  return `<div class="panel" id="painelCvTG"><h2>Currículos por foto no grupo do RH ${chip(est)}</h2>
+    <p class="note" style="margin:0 0 8px">Foto ou PDF de currículo mandado no grupo do RH vira um currículo no site, com o arquivo guardado. A legenda da foto vira o nome (e o WhatsApp, a cidade e o e-mail, se estiverem escritos). Fotos do mesmo álbum, ou mandadas logo em seguida sem legenda, viram páginas do mesmo currículo.${st.cv_total ? ` Já chegaram ${st.cv_total} por aqui.` : ''}</p>
+    ${!temRH ? '<p class="note"><b>Primeiro ligue o grupo do RH</b> no passo 2, marcando "RH".</p>' : ''}
+    <ol class="tg-passos"><li>No Telegram, deixe o robô como <b>administrador do grupo do RH</b> (sem isso o Telegram não entrega as fotos para ele).</li>
+      <li>No Supabase: <b>Edge Functions → Deploy a new function → Via Editor</b>, nome <code>curriculo-telegram</code>, cole o código do arquivo <b>curriculo-telegram.ts</b> e clique em Deploy.</li>
+      <li>Na função criada, abra <b>Details</b> e desligue <b>"Verify JWT"</b> (ou "Enforce JWT Verification"). Quem protege a função é um segredo guardado no cofre do banco.</li></ol>
+    ${cv ? `<p class="note" style="margin:6px 0 0">Última foto recebida em ${dtHora(cv.em)}${s && !(s >= 200 && s < 300) && cv.corpo ? ` · resposta: ${esc(String(cv.corpo).slice(0, 120))}` : ''}.</p>` : ''}</div>`;
 }
 function dMeuTG(dr, u) {
   const m = meuTG(u);

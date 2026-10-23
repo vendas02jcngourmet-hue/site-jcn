@@ -76,27 +76,52 @@ $$;
 revoke all on function tg_cv_config() from public, anon, authenticated;
 grant execute on function tg_cv_config() to service_role;
 
--- 3. O BANCO CHAMA A FUNÇÃO DO SUPABASE PARA CADA FOTO OU ARQUIVO
+-- 3. O BANCO CHAMA A FUNÇÃO DO SUPABASE PARA CADA FOTO OU ARQUIVO (e guarda a última chamada, para a tela de avisos conferir)
+alter table tg_estado add column if not exists cv_req bigint;
+alter table tg_estado add column if not exists cv_em timestamptz;
 create or replace function tg_cv_pedir(msg jsonb) returns void
 language plpgsql security definer set search_path = public, extensions, pg_temp as $$
 declare f jsonb := case when msg ? 'photo' then (msg->'photo')->(jsonb_array_length(msg->'photo') - 1) else msg->'document' end;
 begin
-  perform net.http_post(
+  update tg_estado set cv_em = now(), cv_req = net.http_post(
     url := 'https://kazrmgbqrfanhbtdxidi.supabase.co/functions/v1/curriculo-telegram',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-jcn-segredo', (select decrypted_secret from vault.decrypted_secrets where name = 'tg_cv_segredo' limit 1)),
     body := jsonb_build_object('chat_id', msg->'chat'->'id', 'message_id', msg->'message_id', 'autor', msg->'from'->'id', 'autor_nome', concat_ws(' ', msg->'from'->>'first_name', msg->'from'->>'last_name'),
       'grupo', msg->>'media_group_id', 'legenda', msg->>'caption', 'file_id', f->>'file_id', 'tamanho', f->'file_size',
       'nome_arquivo', coalesce(f->>'file_name', 'foto-' || (msg->>'message_id') || '.jpg'), 'mime', coalesce(f->>'mime_type', 'image/jpeg')),
-    timeout_milliseconds := 20000);
+    timeout_milliseconds := 20000) where id = 1;
 end $$;
 revoke all on function tg_cv_pedir(jsonb) from public, anon, authenticated;
 
+create or replace function cv_texto_ok(p_nome text) returns text
+language sql immutable set search_path = public, pg_temp as $$
+  select '✅ Currículo cadastrado no site: <b>' || tg_esc(p_nome) || '</b>'
+    || case when p_nome like 'Currículo do Telegram%' then E'\nDica: escreva o nome da pessoa na legenda da foto para ele já entrar com o nome.' else '' end
+    || E'\nFotos sem legenda mandadas em seguida entram no mesmo currículo.'
+$$;
 -- 4. A FUNÇÃO DEVOLVE O ARQUIVO GUARDADO: aqui o currículo é criado (ou a página é juntada)
+-- As fotos de um álbum chegam ao mesmo tempo: a trava por grupo do Telegram faz uma esperar a outra,
+-- para todas caírem no mesmo currículo. Se a foto com legenda chegar depois, a legenda vale do mesmo jeito.
+create or replace function cv_legenda(leg text) returns jsonb
+language plpgsql immutable set search_path = public, pg_temp as $$
+declare linha1 text := nullif(trim(split_part(coalesce(leg, ''), E'\n', 1)), ''); tel text;
+begin
+  tel := regexp_replace(coalesce(substring(coalesce(leg, '') from '\(?\d{2}\)?[\s.-]?9?\d{4}[\s.-]?\d{4}'), ''), '\D', '', 'g');
+  if linha1 is not null and (linha1 ~ '\d{4}' or linha1 ~ '@') then linha1 := null; end if;
+  return jsonb_build_object('nome', left(linha1, 160), 'telefone', case when length(tel) between 10 and 11 then tel end,
+    'email', lower(substring(coalesce(leg, '') from '([^@\s]+@[^@\s]+\.[^@\s]+)')),
+    'cidade', trim(substring(coalesce(leg, '') from '([A-Za-zÀ-ú'' ]{3,40})\s*[/-]\s*[A-Z]{2}\M')),
+    'uf', substring(coalesce(leg, '') from '[A-Za-zÀ-ú'' ]{3,40}\s*[/-]\s*([A-Z]{2})\M'));
+end $$;
+
 create or replace function cv_do_telegram(p jsonb) returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
-declare c candidaturas; leg text := nullif(trim(coalesce(p->>'legenda', '')), ''); linha1 text; tel text; mail text; cid text; uf text; novo boolean := false;
-  arq jsonb := jsonb_build_object('caminho', p->>'caminho', 'nome', left(coalesce(p->>'nome_arquivo', regexp_replace(p->>'caminho', '^.*/', ''), 'arquivo'), 160), 'mime', left(coalesce(p->>'mime', ''), 120));
+declare c candidaturas; leg text := nullif(trim(coalesce(p->>'legenda', '')), ''); d jsonb := cv_legenda(leg); novo boolean := false; provisorio boolean;
+  quem text := coalesce(nullif(trim(p->>'autor_nome'), ''), 'RH');
+  arq jsonb := jsonb_build_object('caminho', p->>'caminho', 'nome', left(coalesce(p->>'nome_arquivo', regexp_replace(p->>'caminho', '^.*/', ''), 'arquivo'), 160),
+                                  'mime', left(coalesce(p->>'mime', ''), 120), 'msg', (p->>'message_id')::bigint);
 begin
+  perform pg_advisory_xact_lock(hashtextextended('cv-telegram:' || (p->>'chat_id'), 0));     -- uma página por vez, por grupo
   if p->>'grupo' is not null then
     select * into c from candidaturas where tg_grupo = p->>'grupo' and tg_chat = (p->>'chat_id')::bigint order by criado_em limit 1;
   end if;
@@ -104,32 +129,38 @@ begin
     select * into c from candidaturas where origem = 'telegram' and tg_chat = (p->>'chat_id')::bigint and tg_autor = (p->>'autor')::bigint
        and atualizado_em > now() - interval '3 minutes' order by atualizado_em desc limit 1;
   end if;
+  if c.id is not null and exists (select 1 from jsonb_array_elements(c.arquivos) x where x->>'caminho' = p->>'caminho') then
+    return jsonb_build_object('id', c.id, 'nome', c.nome, 'novo', false, 'paginas', jsonb_array_length(c.arquivos));    -- o Telegram mandou de novo: nada muda
+  end if;
   if c.id is null then
-    linha1 := nullif(trim(split_part(coalesce(leg, ''), E'\n', 1)), '');
-    tel := regexp_replace(coalesce(substring(coalesce(leg, '') from '\(?\d{2}\)?[\s.-]?9?\d{4}[\s.-]?\d{4}'), ''), '\D', '', 'g');
-    mail := lower(substring(coalesce(leg, '') from '([^@\s]+@[^@\s]+\.[^@\s]+)'));
-    cid := trim(substring(coalesce(leg, '') from '([A-Za-zÀ-ú'' ]{3,40})\s*[/-]\s*[A-Z]{2}\M'));
-    uf := substring(coalesce(leg, '') from '[A-Za-zÀ-ú'' ]{3,40}\s*[/-]\s*([A-Z]{2})\M');
-    if linha1 is not null and (linha1 ~ '\d{4}' or linha1 ~ '@') then linha1 := null; end if;
     insert into candidaturas (origem, nome, email, telefone, cidade, uf, area, mensagem, tg_chat, tg_grupo, tg_autor, status)
-    values ('telegram', left(coalesce(linha1, 'Currículo do Telegram ' || to_char(now() at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI')), 160),
-            mail, case when length(tel) between 10 and 11 then tel end, cid, uf, 'A definir',
-            case when leg is not null then left('Enviado pelo Telegram por ' || coalesce(p->>'autor_nome', 'RH') || E':\n' || leg, 2000) else 'Enviado pelo Telegram por ' || coalesce(p->>'autor_nome', 'RH') end,
+    values ('telegram', coalesce(d->>'nome', 'Currículo do Telegram ' || to_char(now() at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI')),
+            d->>'email', d->>'telefone', d->>'cidade', d->>'uf', 'A definir',
+            left('Enviado pelo Telegram por ' || quem || coalesce(E':\n' || leg, ''), 2000),
             (p->>'chat_id')::bigint, p->>'grupo', (p->>'autor')::bigint, 'novo')
     returning * into c;
     novo := true;
+  elsif leg is not null and c.nome like 'Currículo do Telegram%' then
+    -- a página com a legenda chegou depois de outra do mesmo álbum: os dados da legenda passam a valer
+    update candidaturas set nome = coalesce(d->>'nome', nome), telefone = coalesce(telefone, d->>'telefone'), email = coalesce(email, d->>'email'),
+      cidade = coalesce(cidade, d->>'cidade'), uf = coalesce(uf, d->>'uf'), mensagem = left('Enviado pelo Telegram por ' || quem || E':\n' || leg, 2000)
+     where id = c.id returning * into c;
+    update tg_fila set texto = cv_texto_ok(c.nome) where chave = 'cvok:' || c.id and enviado_em is null;
+    if not found and c.nome not like 'Currículo do Telegram%' then
+      insert into tg_fila (chat_id, texto) values ((p->>'chat_id')::bigint, '✏️ Nome do currículo atualizado pela legenda: <b>' || tg_esc(c.nome) || '</b>');
+    end if;
   end if;
-  update candidaturas set arquivos = arquivos || arq,
-    curriculo_caminho = coalesce(curriculo_caminho, p->>'caminho'), curriculo_nome = coalesce(curriculo_nome, arq->>'nome'), curriculo_mime = coalesce(curriculo_mime, arq->>'mime')
+  -- páginas na ordem em que foram mandadas no Telegram; a primeira é a do currículo principal
+  update candidaturas set arquivos = (select jsonb_agg(x order by (x->>'msg')::bigint nulls first) from jsonb_array_elements(arquivos || arq) x)
+   where id = c.id returning * into c;
+  update candidaturas set curriculo_caminho = arquivos->0->>'caminho', curriculo_nome = arquivos->0->>'nome', curriculo_mime = arquivos->0->>'mime'
    where id = c.id returning * into c;
   if novo then
-    insert into tg_fila (chat_id, texto) values ((p->>'chat_id')::bigint, '✅ Currículo cadastrado no site: <b>' || tg_esc(c.nome) || '</b>'
-      || case when c.nome like 'Currículo do Telegram%' then E'\nDica: escreva o nome da pessoa na legenda da foto para ele já entrar com o nome.' else '' end
-      || E'\nFotos sem legenda mandadas em seguida entram no mesmo currículo.');
+    insert into tg_fila (chat_id, texto, chave) values ((p->>'chat_id')::bigint, cv_texto_ok(c.nome), 'cvok:' || c.id);
   end if;
   return jsonb_build_object('id', c.id, 'nome', c.nome, 'novo', novo, 'paginas', jsonb_array_length(c.arquivos));
 end $$;
-revoke all on function cv_do_telegram(jsonb) from public, anon, authenticated;
+revoke all on function cv_do_telegram(jsonb), cv_legenda(text), cv_texto_ok(text) from public, anon, authenticated;
 grant execute on function cv_do_telegram(jsonb) to service_role;
 
 -- quando a função não consegue guardar o arquivo, avisa no grupo
@@ -184,6 +215,26 @@ begin
   return n;
 end $$;
 revoke all on function tg_receber() from public, anon, authenticated;
+
+-- a tela "Avisos no Telegram" mostra se a função respondeu da última vez
+create or replace function tg_status() returns jsonb
+language plpgsql security definer set search_path = public, pg_temp as $$
+declare e tg_estado; cst int; ccorpo text;
+begin
+  if not sou_admin() then raise exception 'Só a administração.' using errcode = '42501'; end if;
+  select * into e from tg_estado where id = 1;
+  if e.cv_req is not null then select status_code, left(content, 200) into cst, ccorpo from net._http_response where id = e.cv_req; end if;
+  return jsonb_build_object('token', tg_token() is not null,
+    'cron', exists (select 1 from cron.job where jobname = 'jcn-telegram'),
+    'pendentes', (select count(*) from tg_fila where enviado_em is null),
+    'enviados_24h', (select count(*) from tg_fila where enviado_em > now() - interval '1 day' and coalesce(status_http, 200) between 0 and 299),
+    'falhas_24h', (select count(*) from tg_fila where enviado_em > now() - interval '1 day' and status_http >= 300),
+    'ultimo_erro', (select r2.content from tg_fila f join net._http_response r2 on r2.id = f.req_id where f.status_http >= 300 order by f.enviado_em desc limit 1),
+    'cv', case when e.cv_em is null then null else jsonb_build_object('em', e.cv_em, 'status', cst, 'corpo', ccorpo) end,
+    'cv_total', (select count(*) from candidaturas where origem = 'telegram'));
+end $$;
+revoke all on function tg_status() from public, anon;
+grant execute on function tg_status() to authenticated;
 
 -- 6. CONFERÊNCIA: deve mostrar 1 segredo e 3 funções
 select (select count(*) from vault.secrets where name = 'tg_cv_segredo') as segredo,
