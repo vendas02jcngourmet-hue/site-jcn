@@ -5,6 +5,48 @@ const ESTADO_CIVIL = ['Solteiro(a)', 'Casado(a)', 'União estável', 'Divorciado
 const AREAS_TC = ['Produção / fábrica', 'Solda e serralheria', 'Pintura', 'Montagem', 'Expedição e logística', 'Motorista', 'Vendas', 'Administrativo / financeiro', 'Marketing', 'Outra área'];
 const CNH_CAT = ['Não tenho', 'A', 'B', 'AB', 'C', 'D', 'E', 'AC', 'AD', 'AE'];
 const temCNH = v => !!v && v !== 'Não tenho';
+// pergunta de sim/não com o detalhe que abre quando a resposta é "sim"
+const sn = (k, rot, ...det) => [{ k, rot, t: 'simnao', perg: 1, l: 6 }, ...det.map(([dk, drot, extra]) => ({ k: dk, rot: drot, l: 3, max: 160, pai: k, se: [k, v => v === 'sim'], ...(extra || {}) }))];
+const EMPREGOS = [1, 2, 3].flatMap(n => [
+  { sub: n === 1 ? '1º emprego (o mais recente)' : `${n}º emprego` },
+  { k: `emp${n}_empresa`, rot: 'Empresa', l: 3, max: 120 },
+  { k: `emp${n}_funcao`, rot: 'Função', l: 3, max: 120 },
+  { k: `emp${n}_inicio`, rot: 'Entrou em', t: 'mes', l: 2, emp: n },
+  { k: `emp${n}_fim`, rot: 'Saiu em', t: 'mes', l: 2, emp: n, se: [`emp${n}_atual`, v => v !== 'sim'] },
+  { k: `emp${n}_atual`, rot: 'Ainda trabalho aqui', t: 'check', l: 2, emp: n, ler: 'Ainda trabalha lá' }]);
+const PERGUNTAS = [
+  { sub: 'Sobre a empresa e a vaga' },
+  ...sn('parente', 'Tem parente que trabalha na empresa?', ['parente_quem', 'Quem? Qual o parentesco?']),
+  ...sn('indicado', 'Foi indicado por algum funcionário?', ['indicado_por', 'Por quem?']),
+  ...sn('ja_trabalhou', 'Já trabalhou na empresa?', ['ja_trab_periodo', 'Em qual período?', { ph: 'Ex.: 2019 a 2021' }], ['ja_trab_funcao', 'Em qual função?']),
+  { k: 'como_soube', rot: 'Como soube da vaga?', t: 'sel', l: 3, ops: ['Indicação de funcionário', 'Amigos ou família', 'Redes sociais', 'Site da JCN', 'Placa na fábrica', 'Agência ou PAT/SINE', 'Outro'] },
+  { k: 'como_soube_outro', rot: 'Qual?', l: 3, max: 120, se: ['como_soube', v => v === 'Outro'] },
+  { sub: 'Sua situação' },
+  ...sn('estudando', 'Está estudando?', ['estudando_que', 'O que está estudando?']),
+  ...sn('desempregado', 'Está desempregado?', ['desempregado_desde', 'Desde quando?']),
+  ...sn('aposentado', 'É aposentado?'),
+  ...sn('alfabetizado', 'É alfabetizado (sabe ler e escrever)?')];
+const SAUDE = [
+  ...sn('dores_costas', 'Tem dores nas costas?'),
+  ...sn('acidente_trab', 'Já sofreu algum acidente de trabalho?', ['acidente_qual', 'O que aconteceu?']),
+  ...sn('alergia', 'Tem alergias?', ['alergia_quais', 'A quê?']),
+  ...sn('operado', 'Já foi operado?', ['operado_qual', 'Qual cirurgia?']),
+  ...sn('prob_altura', 'Tem problemas com altura?'),
+  ...sn('ouve_bem', 'Ouve bem?'),
+  ...sn('diabetes', 'Tem diabetes?'),
+  ...sn('cardiaco', 'Tem problemas cardíacos?'),
+  ...sn('fratura', 'Já teve alguma fratura?', ['fratura_onde', 'Onde e quando?']),
+  ...sn('med_controlado', 'Já fez uso de medicamentos controlados?', ['med_qual', 'Qual?']),
+  ...sn('intoxicou', 'Já se intoxicou?', ['intoxicou_com', 'Com o quê?']),
+  ...sn('quimico', 'Usa algum tipo de produto químico ou entorpecente?', ['quimico_qual', 'Qual?']),
+  ...sn('enxaqueca', 'Tem enxaqueca?'),
+  ...sn('bronquite', 'Tem bronquite?'),
+  ...sn('hernia', 'Tem hérnia?')];
+const SOBRE = [
+  { k: 'pretende_empresa', rot: 'O que você pretende na empresa?', t: 'area', l: 6, max: 2000 },
+  { k: 'pretende_fora', rot: 'O que você pretende ser fora da empresa?', t: 'area', l: 6, max: 2000 },
+  { k: 'sobre', rot: 'Descreva um pouco de você', t: 'area', l: 6, max: 2000 },
+  { k: 'observacoes', rot: 'Observações', t: 'area', l: 6, max: 2000 }];
 const FICHA = [
   { id: 'voce', tit: 'Seus dados', curto: 'Seus dados', campos: [
     { k: 'nome', rot: 'Nome completo', obr: 1, l: 4, max: 160, auto: 'name', base: 1 },
@@ -34,6 +76,7 @@ const FICHA = [
     { k: 'linkedin', rot: 'LinkedIn ou portfólio', t: 'url', l: 2, max: 300, base: 1, ph: 'https://' },
     { k: 'experiencia', rot: 'Experiência profissional', t: 'area', l: 6, max: 4000, base: 1, ph: 'Últimas empresas, funções e tempo em cada uma.' },
     { k: 'mensagem', rot: 'Mensagem para o RH', t: 'area', l: 6, max: 2000, base: 1 }] },
+  { id: 'empregos', tit: 'Últimos 3 empregos', curto: 'Empregos', nota: 'Comece pelo mais recente. Se teve menos de 3, preencha só os que teve.', campos: EMPREGOS },
   { id: 'docs', tit: 'Documentos', curto: 'Documentos', nota: 'Os documentos agilizam a contratação. Se não tiver algum agora, pode deixar em branco.', campos: [
     { k: 'cpf', rot: 'CPF', t: 'cpf', l: 2 },
     { k: 'rg', rot: 'RG', l: 2, max: 20 },
@@ -57,12 +100,22 @@ const FICHA = [
     { k: 'peso', rot: 'Peso (kg)', t: 'dec', l: 2, ph: 'Ex.: 78' },
     { k: 'calcado', rot: 'Número do calçado', t: 'sel', l: 3, ops: Array.from({ length: 16 }, (_, i) => String(33 + i)) },
     { k: 'camisa', rot: 'Tamanho da camisa', t: 'sel', l: 3, ops: ['PP', 'P', 'M', 'G', 'GG', 'XG', 'XGG', 'EG'] }] },
+  { id: 'perguntas', tit: 'Perguntas', curto: 'Perguntas', campos: PERGUNTAS },
+  { id: 'saude', tit: 'Saúde', curto: 'Saúde', nota: 'Responda com sinceridade. As respostas ficam guardadas só com o RH.', campos: SAUDE },
   { id: 'banco', tit: 'Pagamento', curto: 'Pagamento', nota: 'Usado só se você for contratado.', campos: [
     { k: 'pix_tipo', rot: 'Tipo da chave PIX', t: 'sel', l: 2, ops: ['CPF', 'Celular', 'E-mail', 'Chave aleatória'] },
     { k: 'pix', rot: 'Chave PIX', l: 4, max: 120, se: ['pix_tipo', v => !!v] },
-    { k: 'itau', rot: 'Tem conta no banco Itaú?', t: 'simnao', l: 3 }] }
+    { k: 'itau', rot: 'Tem conta no banco Itaú?', t: 'simnao', l: 3 }] },
+  { id: 'sobre', tit: 'Sobre você', curto: 'Sobre você', campos: SOBRE }
 ];
 const FICHA_DEFS = FICHA.flatMap(s => s.campos.filter(c => c.k));
+function tempoEmprego(v, e) {
+  const a = v[e + '_inicio'], b = v[e + '_atual'] === 'sim' ? hojeISO().slice(0, 7) : v[e + '_fim'];
+  if (!/^\d{4}-\d{2}$/.test(a || '') || !/^\d{4}-\d{2}$/.test(b || '')) return '';
+  const m = (+b.slice(0, 4) - +a.slice(0, 4)) * 12 + (+b.slice(5) - +a.slice(5)) + 1; if (m < 1) return '';
+  const an = Math.floor(m / 12), me = m % 12;
+  return 'Tempo: ' + [an ? an + (an > 1 ? ' anos' : ' ano') : '', me ? me + (me > 1 ? ' meses' : ' mês') : ''].filter(Boolean).join(' e ');
+}
 const defDe = k => FICHA_DEFS.find(c => c.k === k);
 const BASE_K = FICHA_DEFS.filter(c => c.base).map(c => c.k);
 
@@ -95,8 +148,12 @@ function campoFicha(c, p, v) {
   switch (c.t) {
     case 'sel': case 'uf': { const ops = c.t === 'uf' ? UFS : c.ops, cur = val || (c.t === 'uf' && p === 'tc' ? 'SP' : '');
       return cx(`<select ${att}><option value="">Escolha</option>${[...new Set([...ops, cur].filter(Boolean))].map(o => `<option ${o === cur ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`); }
-    case 'simnao': return cx(`<div class="fc-sn" role="radiogroup" aria-label="${esc(c.rot)}">${[['sim', 'Sim'], ['nao', 'Não']].map(([x, t]) => `<label><input type="radio" name="${id}" value="${x}" ${val === x ? 'checked' : ''}> ${t}</label>`).join('')}</div>`, false);
+    case 'simnao': if (c.perg) { const fil = FICHA_DEFS.filter(d => d.pai === c.k);
+      return `<div class="field fc fc-6 fc-perg" data-fk="${p}:${c.k}"><span class="fc-q">${esc(c.rot)}</span><div class="fc-sn" role="radiogroup" aria-label="${esc(c.rot)}">${[['sim', 'Sim'], ['nao', 'Não']].map(([x, t]) => `<label><input type="radio" name="${id}" value="${x}" ${val === x ? 'checked' : ''}> ${t}</label>`).join('')}</div>${fil.length ? `<div class="fc-det">${fil.map(d => campoFicha(d, p, v)).join('')}</div>` : ''}</div>`; }
+      return cx(`<div class="fc-sn" role="radiogroup" aria-label="${esc(c.rot)}">${[['sim', 'Sim'], ['nao', 'Não']].map(([x, t]) => `<label><input type="radio" name="${id}" value="${x}" ${val === x ? 'checked' : ''}> ${t}</label>`).join('')}</div>`, false);
     case 'area': return cx(`<textarea ${att} rows="4" maxlength="${c.max || 2000}">${esc(val)}</textarea>`);
+    case 'mes': return cx(`<input type="month" ${att} value="${esc(val)}">`);
+    case 'check': return cx(`<label class="check fc-chk"><input type="checkbox" id="${id}" value="sim" ${val === 'sim' ? 'checked' : ''}> ${esc(c.rot)}</label>`, false).replace(`<span>${esc(c.rot)}${obr}</span>`, '<span>&nbsp;</span>');
     case 'data': return cx(`<input type="date" ${att} value="${esc(val)}">`);
     case 'email': return cx(`<input type="email" ${att} maxlength="160" value="${esc(val)}">`);
     case 'url': return cx(`<input type="url" ${att} maxlength="${c.max}" value="${esc(val)}">`);
@@ -109,12 +166,13 @@ function campoFicha(c, p, v) {
     default: return cx(`<input ${att} maxlength="${c.max || 120}" value="${esc(val)}">`);
   }
 }
-const camposDaEtapa = (s, p, v) => `<div class="fc-grid">${s.campos.map(c => c.sub ? `<h4 class="fc-sub">${esc(c.sub)}</h4>` : campoFicha(c, p, v)).join('')}</div>`;
+const camposDaEtapa = (s, p, v) => `<div class="fc-grid">${s.campos.filter(c => !c.pai).map(c => c.sub ? `<h4 class="fc-sub">${esc(c.sub)}</h4>` : campoFicha(c, p, v) + (c.k && /^emp\d_atual$/.test(c.k) ? `<p class="fc-tempo fc-6" id="${p}-${c.k.slice(0, 4)}_tempo">${esc(tempoEmprego(v, c.k.slice(0, 4)))}</p>` : '')).join('')}</div>`;
 
 /* leitura dos campos que estão à vista */
 function valorCampo(p, k) {
   const c = defDe(k); if (!c) return '';
   if (c.t === 'simnao') { const r = document.querySelector(`input[name="${p}-${k}"]:checked`); return r ? r.value : ''; }
+  if (c.t === 'check') { const el = document.getElementById(`${p}-${k}`); return el && el.checked ? 'sim' : ''; }
   if (c.t === 'idades') return $$(`[id^="${p}-${k}-"]`).map(i => i.value.trim());
   const el = document.getElementById(`${p}-${k}`); return el ? el.value : '';
 }
@@ -141,6 +199,9 @@ function problemaFicha(p, v, so, publico) {
     if (c.k === 'peso') { const n = numBR(t); if (!(n >= 30 && n <= 250)) return ['Confira o peso, em quilos (ex.: 78).', c.k]; }
     if (c.k === 'filhos_qtd' && !(+t >= 1 && +t <= 15)) return ['Informe quantos filhos (de 1 a 15).', c.k];
     if (c.k === 'filhos_idades' && t.some(a => a !== '' && !(+a >= 0 && +a <= 60))) return ['Confira a idade dos filhos.', c.k];
+    if (c.t === 'mes' && !/^\d{4}-\d{2}$/.test(t)) return [`Confira a data: ${c.rot} (mês e ano).`, c.k];
+    if (c.t === 'mes' && /_fim$/.test(c.k) && v[c.k.replace('_fim', '_inicio')] && t < v[c.k.replace('_fim', '_inicio')]) return ['A saída não pode ser antes da entrada.', c.k];
+    if (c.t === 'mes' && t > hojeISO().slice(0, 7)) return ['Confira a data: ainda não chegamos nesse mês.', c.k];
     if (c.k === 'nascimento') { const a = (Date.now() - new Date(t + 'T12:00:00')) / 31557600000; if (!(a >= 14 && a <= 90)) return ['Confira a data de nascimento.', c.k]; }
   }
   return null;
@@ -188,11 +249,13 @@ document.addEventListener('input', ev => {
   if (t.dataset.mask && MASCARA[t.dataset.mask]) { const fim = t.selectionStart === t.value.length; t.value = MASCARA[t.dataset.mask](soDig(t.value)); if (fim) t.setSelectionRange(t.value.length, t.value.length); }
   if (t.id === `${p}-cep`) buscarCEP(p);
   if (t.id === `${p}-filhos_qtd`) refazerIdades(p);
+  const em = t.id.match(/^(tc|rf)-(emp\d)_/); if (em) { const x = document.getElementById(`${p}-${em[2]}_tempo`); if (x) x.textContent = tempoEmprego(lerFicha(p), em[2]); }
 });
 document.addEventListener('change', ev => {
   const t = ev.target, id = t.id || t.name || ''; if (!/^(tc|rf)-/.test(id)) return;
   const p = id.slice(0, 2); aplicarSe(p);
   if (id === `${p}-filhos`) refazerIdades(p);
+  const em = id.match(/^(tc|rf)-(emp\d)_/); if (em) { const x = document.getElementById(`${p}-${em[2]}_tempo`); if (x) x.textContent = tempoEmprego(lerFicha(p), em[2]); }
 });
 
 /* ficha para ler (RH): só o que foi preenchido, por grupo */
@@ -200,6 +263,8 @@ function textoCampo(c, x, ficha) {
   if (x == null || x === '' || (Array.isArray(x) && !x.length)) return '';
   switch (c.t) {
     case 'simnao': return x === 'sim' ? 'Sim' : x === 'nao' ? 'Não' : esc(x);
+    case 'check': return x === 'sim' ? 'Sim' : '';
+    case 'mes': return /^\d{4}-\d{2}$/.test(x) ? x.slice(5) + '/' + x.slice(0, 4) : esc(x);
     case 'data': return dataBR(String(x).slice(0, 10));
     case 'tel': return c.k === 'telefone' ? `<a href="https://wa.me/55${esc(soDig(x))}" target="_blank" rel="noopener">${esc(telFmt(x))}</a>` : esc(telFmt(x));
     case 'email': return `<a href="mailto:${esc(x)}">${esc(x)}</a>`;
@@ -213,9 +278,17 @@ function textoCampo(c, x, ficha) {
 }
 function valoresDaCand(c) { const v = { ...(c.ficha || {}) }; BASE_K.forEach(k => { v[k] = c[k] == null ? '' : c[k]; }); if (v.area === 'A definir') v.area = ''; return v; }
 function fichaParaLer(c) {
-  const v = valoresDaCand(c);
-  return FICHA.map(s => { const linhas = s.campos.filter(x => x.k && !['experiencia', 'mensagem'].includes(x.k)).map(x => [x.ler || x.rot, textoCampo(x, v[x.k])]).filter(x => x[1]);
-    return linhas.length ? `<h4 class="cand-sec">${esc(s.tit)}</h4><dl class="cand-dl">${linhas.map(([k, t]) => `<div><dt>${esc(k)}</dt><dd>${t}</dd></div>`).join('')}</dl>` : ''; }).join('');
+  const v = valoresDaCand(c), dl = l => `<dl class="cand-dl">${l.map(([k, t]) => `<div><dt>${esc(k)}</dt><dd>${t}</dd></div>`).join('')}</dl>`;
+  return FICHA.map(s => {
+    if (s.id === 'empregos') {
+      const blocos = [1, 2, 3].map(n => { const e = `emp${n}`, l = [['Empresa', esc(v[e + '_empresa'] || '')], ['Função', esc(v[e + '_funcao'] || '')],
+        ['Período', [textoCampo(defDe(e + '_inicio'), v[e + '_inicio']), v[e + '_atual'] === 'sim' ? 'atual' : textoCampo(defDe(e + '_fim'), v[e + '_fim'])].filter(Boolean).join(' até ')], ['Tempo', esc(tempoEmprego(v, e).replace('Tempo: ', ''))]].filter(x => x[1]);
+        return l.length ? `<p class="cand-emp">${n}º emprego${n === 1 ? ' (mais recente)' : ''}</p>${dl(l)}` : ''; }).join('');
+      return blocos ? `<h4 class="cand-sec">${esc(s.tit)}</h4>${blocos}` : '';
+    }
+    const linhas = s.campos.filter(x => x.k && !['experiencia', 'mensagem'].includes(x.k)).map(x => [x.ler || (x.pai ? (defDe(x.pai).rot.replace(/\?$/, '') + ': ' + x.rot.replace(/\?$/, '').toLowerCase()) : x.rot), textoCampo(x, v[x.k])]).filter(x => x[1]);
+    return linhas.length ? `<h4 class="cand-sec">${esc(s.tit)}</h4>${s.id === 'saude' || s.id === 'perguntas' ? `<dl class="cand-dl cand-perg">${linhas.map(([k, t]) => `<div><dt>${esc(k)}</dt><dd>${t === 'Sim' ? '<b>Sim</b>' : t}</dd></div>`).join('')}</dl>` : dl(linhas)}` : '';
+  }).join('');
 }
 // colunas da planilha de currículos
 const FICHA_CSV = FICHA_DEFS.filter(c => !c.base);

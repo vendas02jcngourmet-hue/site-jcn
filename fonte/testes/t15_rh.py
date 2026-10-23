@@ -14,14 +14,14 @@ def preencher(pg, nome='Carlos Alberto Souza', email='carlos@exemplo.com', fone=
     etapa(pg, 0); pg.fill('#tc-nome', nome)
     etapa(pg, 1); pg.fill('#tc-telefone', fone); pg.fill('#tc-email', email); pg.fill('#tc-cidade', 'Catanduva')
     etapa(pg, 2); pg.select_option('#tc-area', area); pg.fill('#tc-cargo', 'Soldador'); pg.select_option('#tc-escolaridade', 'Curso técnico'); pg.fill('#tc-experiencia', '5 anos de solda MIG na Metalúrgica X.'); pg.select_option('#tc-disponibilidade', 'Imediata')
-    etapa(pg, 7)
+    etapa(pg, 11)
 try:
   with sync_playwright() as p:
     br = p.chromium.launch(); W = lambda pg, ms=300: pg.wait_for_timeout(ms)
     v, ev = pagina(br); v.goto(B); W(v, 1500)
     ok(v.locator('.site-head nav a[href="#trabalhe"]').count() == 1, 'menu do site tem "Trabalhe conosco"')
     v.evaluate("document.querySelector('#trabalhe').scrollIntoView()"); W(v); v.click('#tcSeguir'); W(v); ok('nome completo' in v.inner_text('#tcErro'), 'valida a etapa antes de seguir: ' + v.inner_text('#tcErro'))
-    etapa(v, 7); v.click('#tcEnviar'); W(v); ok('nome completo' in v.inner_text('#tcErro') and v.is_visible('#tc-nome'), 'ao enviar, volta para a etapa com o erro')
+    etapa(v, 11); v.click('#tcEnviar'); W(v); ok('nome completo' in v.inner_text('#tcErro') and v.is_visible('#tc-nome'), 'ao enviar, volta para a etapa com o erro')
     preencher(v); v.click('#tcEnviar'); W(v); ok('currículo' in v.inner_text('#tcErro'), 'pede o currículo')
     v.set_input_files('#tc-arquivo', FX + 'nao-e-pdf.txt'); v.click('#tcEnviar'); W(v); ok('PDF' in v.inner_text('#tcErro'), 'recusa arquivo de texto')
     v.set_input_files('#tc-arquivo', PDF); v.click('#tcEnviar'); W(v); ok('autorização' in v.inner_text('#tcErro'), 'pede a autorização (LGPD)')
