@@ -27,6 +27,25 @@ const rotuloOpcoes = (varias, forno) => varias ? (forno ? 'Escolher grelha e for
 const specDe = (p, k) => { const s = (p.specs || []).find(x => String(x[0]).trim().toLowerCase() === k); return s ? s[1] : ''; };
 const grelhaDe = p => p.grelha ? GRELHAS[p.grelha] : specDe(p, 'grelha');
 const ehFogao = p => !!grelhaDe(p);
+// filtro dos fogões por número de bocas e por perfil (P5, P7, P8): usado no catálogo e no orçamento
+const bocasDe = p => { const m = String(p.nome || '').match(/(\d+)\s*bocas?\b/i); return m ? +m[1] : +specDe(p, 'bocas') || 0; };
+const perfilDe = p => { const m = (String(p.nome || '') + ' ' + specDe(p, 'linha')).match(/Perfil\s*(\d)/i); return m ? +m[1] : 0; };
+function opcoesFogao(lista) {                                          // só aparece quando há o que escolher
+  const b = [...new Set(lista.map(bocasDe).filter(Boolean))].sort((x, y) => x - y), pf = [...new Set(lista.map(perfilDe).filter(Boolean))].sort();
+  return { bocas: b.length > 1 ? b : [], perfil: pf.length > 1 ? pf : [] };
+}
+function filtrarFogao(lista, f) {
+  const o = opcoesFogao(lista);
+  return lista.filter(p => (!f.bocas || !o.bocas.length || bocasDe(p) === +f.bocas) && (!f.perfil || !o.perfil.length || perfilDe(p) === +f.perfil));
+}
+// as duas fileiras de botões; "act" recebe data-k (bocas/perfil) e data-v
+function chipsFogao(lista, f, act, extra = '') {
+  const o = opcoesFogao(lista); if (!o.bocas.length && !o.perfil.length) return '';
+  const conta = (k, v) => filtrarFogao(lista, { ...f, [k]: v }).length;
+  const fila = (k, rot, vals, txt) => vals.length ? `<div class="ff-linha" role="group" aria-label="${rot}"><span class="ff-rot">${rot}</span>
+    <button class="chip${!f[k] ? ' on' : ''}" data-act="${act}" data-k="${k}" data-v=""${extra}>Todos</button>${vals.map(v => `<button class="chip${+f[k] === v ? ' on' : ''}" data-act="${act}" data-k="${k}" data-v="${v}"${extra} ${conta(k, v) ? '' : 'disabled'}>${txt(v)}</button>`).join('')}</div>` : '';
+  return `<div class="ff">${fila('bocas', 'Bocas', o.bocas, v => v + (v === 1 ? ' boca' : ' bocas'))}${fila('perfil', 'Perfil', o.perfil, v => 'P' + v)}</div>`;
+}
 const ONDE = { loja: ['Adicionar ao carrinho', 'no carrinho'], site: ['Adicionar à sacola', 'na sacola'], venda: ['Adicionar ao pedido', 'no pedido'] };
 const NAV = {
   admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['rh', 'Currículos (RH)'], ['rh-agenda', 'Reuniões do RH'], ['avisos', 'Avisos no Telegram'], ['usuarios', 'Usuários']],
@@ -246,12 +265,14 @@ function vCatalogo(u) {
   const todos = state.catalogo.produtos.filter(p => p.ativo && (cat(p.cat) || {}).ativa), cats = state.catalogo.categorias.filter(c => todos.some(p => p.cat === c.id));
   if (!cats.some(c => c.id === ui.catVenda)) ui.catVenda = '';
   const q = (ui.buscaVenda || '').trim().toLowerCase();
-  const achados = todos.filter(p => (!ui.catVenda || p.cat === ui.catVenda) && (!q || (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q)));
+  const achados0 = todos.filter(p => (!ui.catVenda || p.cat === ui.catVenda) && (!q || (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q)));
+  const ff = ui.ffVenda || (ui.ffVenda = { bocas: '', perfil: '' }), achados = filtrarFogao(achados0, ff);
   const gs = new Set(achados.map(p => p.grupo).filter(Boolean)), lista = todos.filter(p => achados.includes(p) || gs.has(p.grupo));   // achou uma grelha, mostra o fogão com as duas
   const ms = modelos(lista); let sub = '';
   return `<h1>${u.papel === 'admin' ? 'Tabela de preços' : 'Catálogo e preços'}</h1><p class="sub">Tabela de preços JCN de julho de 2026. Abra um produto para ver a ficha; nos fogões com duas grelhas, a escolha entre ferro fundido e aço carbono aparece ali, junto com o forno, que é opcional.</p>
   <div class="bar"><label class="sr" for="fv">Categoria</label><select id="fv" class="inp" style="width:auto" data-chg="filtro-venda"><option value="">Todas as categorias</option>${cats.map(c => `<option value="${esc(c.id)}" ${c.id === ui.catVenda ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
     <label class="sr" for="bv">Buscar</label><input id="bv" class="inp" style="width:min(16rem,100%)" type="search" placeholder="Buscar por nome ou código" data-chg="busca-venda" value="${esc(ui.buscaVenda || '')}"></div>
+  ${chipsFogao(achados0, ff, 'ff-venda')}
   <p class="note" style="margin:-4px 0 12px">${ms.length} ${ms.length === 1 ? 'produto' : 'produtos'}, ${lista.length} ${lista.length === 1 ? 'código' : 'códigos'}.</p>
   ${ms.length ? `<div class="cards">${ms.map(g => { const p = g[0], varias = g.length > 1, ids = g.map(x => x.id).join(','), com = g.map(x => x.preco).filter(v => v > 0), fo = com.length && fornosDe(p, 'venda', u).length;
     let titulo = '';                                                   // com a categoria filtrada, os subgrupos da tabela viram títulos
@@ -687,4 +708,5 @@ document.addEventListener('keydown', ev => {
   if (ev.key === 'Enter' && ev.target.matches('#lgEmail,#lgSenha')) acts.entrar();
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('label.btn')) { ev.preventDefault(); const i = $('input[type=file]', ev.target); if (i) i.click(); }
 });
-
+// filtro de bocas e perfil no catálogo
+Object.assign(acts, { 'ff-venda': e => { const f = ui.ffVenda || (ui.ffVenda = { bocas: '', perfil: '' }); f[e.dataset.k] = e.dataset.v; renderApp(); } });

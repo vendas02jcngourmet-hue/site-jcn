@@ -1,0 +1,33 @@
+# Filtro de fogões por bocas e por perfil (P5, P7, P8): no orçamento das ligações e no catálogo
+import sys; sys.path.insert(0, '/home/claude/real/testes')
+from base import *
+srv = subir()
+try:
+  with sync_playwright() as p:
+    br = p.chromium.launch(); pg, errs = pagina(br); W = lambda ms=300: pg.wait_for_timeout(ms)
+    pg.goto(B); W(1200); entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026'); ir(pg, 'ligacoes'); pg.click('[data-act=lig-orc]'); W()
+    pg.click('#orcLig .pk-cats .chip:has-text("Fogões baixa pressão")'); W()
+    ok(pg.locator('#orcLig .ff-linha').count() == 2, 'no orçamento: filtros de bocas e de perfil')
+    t0 = pg.locator('#orcLig .pk-card').count()
+    pg.click('#orcLig [data-act=pk-ff][data-k=bocas][data-v="2"]'); W()
+    nomes = pg.locator('#orcLig .pk-card b').all_inner_texts()
+    ok(nomes and all('2 bocas' in n for n in nomes) and len(nomes) < t0, f'só fogões de 2 bocas: {len(nomes)} de {t0}')
+    pg.click('#orcLig [data-act=pk-ff][data-k=perfil][data-v="7"]'); W()
+    nomes = pg.locator('#orcLig .pk-card b').all_inner_texts()
+    ok(nomes and all('2 bocas' in n and ('Perfil 7' in n or 'inox' in n) for n in nomes) and not any('Perfil 5' in n or 'Perfil 8' in n for n in nomes), '2 bocas + P7: ' + ' | '.join(nomes))
+    pg.click('#orcLig [data-act=pk-ff][data-k=perfil][data-v="8"]'); W(); nomes = pg.locator('#orcLig .pk-card b').all_inner_texts()
+    ok(nomes and all('Perfil 8' in n for n in nomes), '2 bocas + P8: ' + ' | '.join(nomes))
+    pg.locator('#mont-lig').screenshot(path=R + '/testes/shots/t23_orcamento.png')
+    pg.click('#orcLig [data-act=pk-ff][data-k=perfil][data-v="5"]'); W(); pg.click('#orcLig .pk-card >> nth=0'); W()
+    ok(pg.locator('#orcLig [data-act=pk-grelha]').count() == 2 or pg.locator('#orcLig [data-act=pk-add]').count() == 1, 'filtrado, o produto abre com a escolha da grelha e do forno')
+    pg.click('#orcLig [data-act=pk-voltar]'); W(); ok('on' in pg.get_attribute('#orcLig [data-act=pk-ff][data-k=bocas][data-v="2"]', 'class'), 'o filtro continua ao voltar para a lista')
+    pg.click('#orcLig .pk-cats .chip:has-text("Linha Colors")'); W(); ok(pg.locator('#orcLig .ff').count() == 0 and pg.locator('#orcLig .pk-card').count() == 11, 'Linha Colors: sem filtro e com os 11 fogões')
+    # catálogo
+    ir(pg, 'catalogo'); pg.select_option('#fv', 'altapressao'); W()
+    pg.click('[data-act=ff-venda][data-k=bocas][data-v="4"]'); W(); nomes = pg.locator('.cards .card h3').all_inner_texts()
+    ok(nomes and all('4 bocas' in n for n in nomes), 'catálogo, alta pressão de 4 bocas: ' + ' | '.join(nomes))
+    pg.screenshot(path=R + '/testes/shots/t23_catalogo.png')
+    pg.click('[data-act=ff-venda][data-k=bocas][data-v=""]'); W(); ok(pg.locator('.cards .card').count() > len(nomes), '"Todos" volta a mostrar tudo')
+    ok(not errs, 'sem erros: ' + ' | '.join(errs)[:200])
+finally: srv.terminate()
+print('FALHAS:', F if F else 'nenhuma')

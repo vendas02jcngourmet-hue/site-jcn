@@ -75,11 +75,13 @@ function montador(d, onde) {
       </div></div></div>`;
   }
   const q = (k.busca || '').trim().toLowerCase(), cats = state.catalogo.categorias.filter(c => c.ativa !== false && ativos.some(p => p.cat === c.id));
-  const lista = modelos(ativos.filter(p => q ? (p.nome + ' ' + (p.codigo || '') + ' ' + (p.cor || '')).toLowerCase().includes(q) || ativos.some(x => x.grupo && x.grupo === p.grupo && (x.codigo || '').toLowerCase().includes(q)) : p.cat === k.cat));
+  const base = ativos.filter(p => q ? (p.nome + ' ' + (p.codigo || '') + ' ' + (p.cor || '')).toLowerCase().includes(q) || ativos.some(x => x.grupo && x.grupo === p.grupo && (x.codigo || '').toLowerCase().includes(q)) : p.cat === k.cat);
+  const lista = modelos(filtrarFogao(base, k));
   return `<div class="mont" id="mont-${onde}"><div class="mont-top"><b>Adicionar produto</b>
       <input class="inp" type="search" placeholder="Buscar por nome ou código" data-pk="busca" data-onde="${onde}" value="${esc(k.busca)}" aria-label="Buscar produto">
       <button class="btn ghost sm" ${de('pk-livre')}>Item avulso (escrever)</button></div>
     ${q ? '' : `<div class="pk-cats">${cats.map(c => `<button class="chip${c.id === k.cat ? ' on' : ''}" ${de('pk-cat', ` data-id="${esc(c.id)}"`)}>${esc(c.nome)}</button>`).join('')}</div>`}
+    ${chipsFogao(base, k, 'pk-ff', ` data-onde="${onde}"`)}
     <div class="pk-grid">${lista.slice(0, 60).map(g => { const p = g[0], mn = Math.min(...g.map(x => x.preco > 0 ? x.preco : Infinity)), fo = g.some(x => (x.fornos || []).length);
       return `<button class="pk-card" ${de('pk-modelo', ` data-id="${esc(p.id)}"`)}><span class="ph">${fotoDe(p, '')}</span><b>${esc(p.cat === 'colors' ? `${p.nome} (${p.cor})` : p.nome)}</b>
         <small>${esc(g.map(x => x.codigo).filter(Boolean).join(' · '))}</small><span class="pk-pr">${isFinite(mn) ? (g.length > 1 ? 'a partir de ' : '') + brl(mn) : 'Preço a definir'}${g.length > 1 ? ' · 2 grelhas' : ''}${fo ? ' · forno opcional' : ''}</span></button>`; }).join('') || '<p class="note">Nenhum produto encontrado.</p>'}</div></div>`;
@@ -181,6 +183,7 @@ Object.assign(acts, {
 const pk = e => { const d = orcDraft(e.dataset.onde); return d && d.pick ? [d, d.pick] : [null, null]; };
 const pkVolta = onde => { redesenharOrc(onde); const m = $(`#mont-${onde}`); if (m && m.getBoundingClientRect().top < 0) m.scrollIntoView({ block: 'start' }); };
 Object.assign(acts, {
+  'pk-ff': e => { const [d, k] = pk(e); if (!d) return; k[e.dataset.k] = e.dataset.v; redesenharOrc(e.dataset.onde); },
   'pk-cat': e => { const [d, k] = pk(e); if (!d) return; k.cat = e.dataset.id; redesenharOrc(e.dataset.onde); },
   'pk-modelo': e => { const [d, k] = pk(e); if (!d) return; Object.assign(k, { modelo: e.dataset.id, sel: '', forno: '', qtd: 1 }); pkVolta(e.dataset.onde); },
   'pk-voltar': e => { const [d, k] = pk(e); if (!d) return; k.modelo = ''; pkVolta(e.dataset.onde); },
