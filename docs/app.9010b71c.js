@@ -1913,7 +1913,7 @@ function retornosPendentes(u, soMeus) {
   const hoje = hojeISO();
   return crm().prospects.filter(p => p.proximo_contato && p.proximo_contato <= hoje && !['cliente', 'sem_interesse', 'numero_errado'].includes(p.situacao))
     .filter(p => !soMeus || (ligDe(p.id)[0] || {}).vendedor_id === u.id)
-    .sort((a, b) => a.proximo_contato < b.proximo_contato ? -1 : 1);
+    .sort((a, b) => (a.proximo_contato + (a.proximo_hora || '99')) < (b.proximo_contato + (b.proximo_hora || '99')) ? -1 : 1);
 }
 const linhaLig = (l, mostraVend) => { const p = prospectDe(l.prospect_id) || {}; return `<tr><td>${dataBR(diaDe(l.feita_em))}<div class="note">${horaDe(l.feita_em)}</div></td>
   <td><button class="linkbtn" data-act="abrir-prospect" data-id="${esc(l.prospect_id)}"><b>${esc(p.loja || '—')}</b></button><div class="note">${esc(p.comprador || '')}${p.comprador ? ' · ' : ''}${esc(telFmt(p.telefone || ''))}</div></td>
@@ -1924,7 +1924,7 @@ const orcLink = l => orcs().filter(o => o.ligacao_id === l.id).map(o => `<div cl
 /* ---------- tela: Ligações ---------- */
 function vLigacoes(u) {
   const d = ui.lig || (ui.lig = novaLig()), adm = u.papel === 'admin', ja = crm().prospects.find(p => p.telefone === soDig(d.telefone).replace(/^55(?=\d{10,11}$)/, ''));
-  const soMeus = adm ? false : ui.ligSoMeus !== false, ret = retornosPendentes(u, soMeus), hoje = hojeISO();
+  const soMeus = !adm, ret = retornosPendentes(u, soMeus), hoje = hojeISO();
   const minhas = crm().ligacoes.filter(l => adm || l.vendedor_id === u.id).slice(0, 40);
   const hojeN = crm().ligacoes.filter(l => l.vendedor_id === u.id && diaDe(l.feita_em) === hoje).length;
   const campo = (k, t, extra = '') => `<label class="field"><span>${t}</span><input id="lg-${k}" data-lg="${k}" value="${esc(d[k])}" ${extra}></label>`;
@@ -1938,16 +1938,16 @@ function vLigacoes(u) {
     <fieldset class="res"><legend>Resultado da ligação</legend>${Object.entries(RESULTADOS).map(([k, [t]]) => `<label class="opt-res"><input type="radio" name="lgres" value="${k}" data-lg="resultado" ${d.resultado === k ? 'checked' : ''}> ${t}</label>`).join('')}</fieldset>
     <label class="field"><span>Tratativa: o que foi conversado</span><textarea id="lg-tratativa" data-lg="tratativa" rows="3" placeholder="Ex.: falou com o João, pediu tabela de fogões industriais, vai ver com o sócio.">${esc(d.tratativa)}</textarea></label>
     <div class="grid-ret" style="margin-top:10px"><label class="field"><span>Retornar em (opcional)</span><input id="lg-retornar_em" type="date" data-lg="retornar_em" value="${esc(d.retornar_em)}" min="${hoje}"></label>
-      <label class="field"><span>Às (hora que o cliente pediu)</span><input id="lg-retornar_hora" type="time" data-lg="retornar_hora" value="${esc(d.retornar_hora)}"></label>
-      <p class="note" style="align-self:end;margin:0 0 8px">🔔 Com o dia marcado, o aviso chega no Telegram na hora pedida (sem hora: às 9h).</p></div>
+      <label class="field"><span>Às (hora que o cliente pediu)${d.retornar_em ? ' *' : ''}</span><input id="lg-retornar_hora" type="time" data-lg="retornar_hora" value="${esc(d.retornar_hora)}"></label>
+      <p class="note" style="align-self:end;margin:0 0 8px">🔔 15 minutos antes da hora marcada, chega o aviso no Telegram.</p></div>
     ${crm().orcIndisponivel ? avisoOrc() : d.orc ? `<div class="orc-box" id="orcLig"><div class="galtop" style="margin:0 0 10px"><h3 style="margin:0">Orçamento desta ligação</h3><button class="linkbtn" data-act="lig-orc-tirar">Tirar o orçamento</button></div>${orcEditor(d.orc, 'lig', false)}</div>`
       : `<div class="bar" style="margin:12px 0 0"><button class="btn ghost sm" data-act="lig-orc">+ Adicionar orçamento</button><span class="note">Monte o orçamento com os itens que a loja pediu.</span></div>`}
     <p class="err" role="alert" id="lgErro" ${ui.ligErro ? '' : 'hidden'}>${esc(ui.ligErro || '')}</p>
     <div class="bar" style="margin:12px 0 0"><button class="btn" data-act="lig-salvar">${d.orc ? 'Salvar ligação e orçamento' : 'Salvar ligação'}</button><button class="btn ghost" data-act="lig-limpar">Limpar</button></div></div>
   <div class="panel"><div class="galtop" style="margin:0 0 10px"><h2 style="margin:0">Retornos para hoje e atrasados (${ret.length})</h2>
-    ${adm ? '' : `<label class="check"><input type="checkbox" data-chg="lig-meus" ${soMeus ? 'checked' : ''}> Só os meus</label>`}</div>
-    ${ret.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Retornar em</th><th>Loja</th><th>Cidade</th><th>Situação</th><th>Última tratativa</th></tr></thead><tbody>
-      ${ret.map(p => `<tr><td>${p.proximo_contato < hoje ? `<span class="chip bad">${dataBR(p.proximo_contato)}</span>` : '<span class="chip info">Hoje</span>'}</td>
+    </div>
+    ${ret.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Retornar</th><th>Loja</th><th>Cidade</th><th>Situação</th><th>Última tratativa</th></tr></thead><tbody>
+      ${ret.map(p => `<tr><td>${p.proximo_contato < hoje ? `<span class="chip bad">${dataBR(p.proximo_contato)}</span>` : '<span class="chip info">Hoje</span>'}${p.proximo_hora ? `<div class="note"><b>às ${p.proximo_hora.slice(0, 5)}</b></div>` : ''}</td>
         <td><button class="linkbtn" data-act="abrir-prospect" data-id="${esc(p.id)}"><b>${esc(p.loja)}</b></button><div class="note">${esc(p.comprador || '')}${p.comprador ? ' · ' : ''}<a href="tel:+55${esc(p.telefone)}">${esc(telFmt(p.telefone))}</a></div></td>
         <td>${esc(p.cidade)}/${esc(p.uf)}</td><td>${chipRes(p.situacao)}</td><td class="trat">${esc((ligDe(p.id)[0] || {}).tratativa || '')}</td></tr>`).join('')}</tbody></table></div>`
       : '<p class="note" style="margin:0">Nenhum retorno pendente.</p>'}</div>
@@ -1989,12 +1989,12 @@ function vClientes(u) {
       <td><a href="tel:+55${esc(p.telefone)}">${esc(telFmt(p.telefone))}</a> <a class="note" href="https://wa.me/55${esc(p.telefone)}" target="_blank" rel="noopener">WhatsApp</a></td>
       <td>${esc(p.cidade)}/${esc(p.uf)}</td><td>${chipRes(p.situacao)}</td>
       <td>${p.ultima_ligacao ? `${dataBR(diaDe(p.ultima_ligacao))}<div class="note">${esc(nomeVend((ls[0] || {}).vendedor_id))}</div>` : '—'}</td>
-      <td>${p.proximo_contato ? (p.proximo_contato < hojeISO() ? `<span class="chip bad">${dataBR(p.proximo_contato)}</span>` : dataBR(p.proximo_contato)) : '—'}</td><td class="num">${ls.length}</td></tr>`; }).join('')}
+      <td>${p.proximo_contato ? (p.proximo_contato < hojeISO() ? `<span class="chip bad">${dataBR(p.proximo_contato)}</span>` : dataBR(p.proximo_contato)) + (p.proximo_hora ? ` <span class="note">às ${p.proximo_hora.slice(0, 5)}</span>` : '') : '—'}</td><td class="num">${ls.length}</td></tr>`; }).join('')}
   </tbody></table></div>` : `<div class="panel"><p class="note" style="margin:0">${todos.length ? 'Nenhuma loja com esses filtros.' : 'A base começa a ser montada com a primeira ligação registrada.'}</p></div>`}`;
 }
 function dProspect(dr, u) {
   const p = prospectDe(dr.id); if (!p) return '';
-  const d = dr.draft || (dr.draft = { loja: p.loja, comprador: p.comprador || '', telefone: telFmt(p.telefone), cidade: p.cidade, uf: p.uf, email: p.email || '', observacoes: p.observacoes || '', proximo_contato: p.proximo_contato || '' });
+  const d = dr.draft || (dr.draft = { loja: p.loja, comprador: p.comprador || '', telefone: telFmt(p.telefone), cidade: p.cidade, uf: p.uf, email: p.email || '', observacoes: p.observacoes || '', proximo_contato: p.proximo_contato || '', proximo_hora: (p.proximo_hora || '').slice(0, 5) });
   const ls = ligDe(p.id), adm = u.papel === 'admin';
   const campo = (k, t, extra = '') => `<label class="field"><span>${t}</span><input data-pd="${k}" value="${esc(d[k])}" ${extra}></label>`;
   return `<h2 class="dt">${esc(p.loja)}</h2><p class="note">${chipRes(p.situacao)} · ${esc(p.cidade)}/${esc(p.uf)} · cadastrada em ${dataBR(diaDe(p.criado_em))} por ${esc(nomeVend(p.criado_por))}</p>
@@ -2008,7 +2008,9 @@ function dProspect(dr, u) {
   <h3>Dados da loja</h3>
   <div class="grid2">${campo('loja', 'Nome da loja')}${campo('comprador', 'Comprador')}${campo('telefone', 'Telefone', 'inputmode="tel"')}${campo('email', 'E-mail', 'type="email"')}${campo('cidade', 'Cidade')}
     <label class="field"><span>UF</span><select data-pd="uf">${UFS.map(x => `<option ${x === d.uf ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
-    <label class="field"><span>Próximo contato</span><input type="date" data-pd="proximo_contato" value="${esc(d.proximo_contato)}"></label></div>
+    <label class="field"><span>Próximo contato (dia)</span><input type="date" data-pd="proximo_contato" value="${esc(d.proximo_contato)}"></label>
+    <label class="field"><span>Hora do próximo contato</span><input type="time" data-pd="proximo_hora" value="${esc(d.proximo_hora)}"></label></div>
+  <p class="note" style="margin:6px 0 0">🔔 O aviso no Telegram chega 15 minutos antes do dia e da hora marcados.</p>
   <label class="field" style="margin-top:10px"><span>Observações</span><textarea data-pd="observacoes" rows="3">${esc(d.observacoes)}</textarea></label>
   <p class="err" role="alert" ${dr.erro ? '' : 'hidden'}>${esc(dr.erro || '')}</p>
   <div class="foot"><button class="btn" data-act="prospect-salvar">Salvar dados</button><button class="btn ghost" data-act="fechar">Fechar</button>
@@ -2094,6 +2096,8 @@ Object.assign(acts, {
     if (!d.resultado) return erro('Escolha o resultado da ligação.');
     if (!d.tratativa.trim()) return erro('Escreva a tratativa: o que foi conversado.');
     if (d.retornar_hora && !d.retornar_em) return erro('Informe também o dia do retorno.');
+    if (d.retornar_em && !d.retornar_hora) return erro('Informe a hora do retorno (a hora que o cliente pediu para ligar).');
+    if (d.retornar_em && new Date(`${d.retornar_em}T${d.retornar_hora}:00`) < Date.now()) return erro('A data e a hora do retorno já passaram.');
     if (d.resultado === 'retornar' && !d.retornar_em) return erro('Informe quando retornar.');
     if (d.orc) { const m = problemaOrc(d.orc); if (m) { if (/motivo/.test(m)) d.orc.aba = 'motivo'; return erro('Orçamento: ' + m); } }
     ui.ocupado = true; const bt = $('[data-act=lig-salvar]'); if (bt) { bt.disabled = true; bt.textContent = 'Salvando…'; }
@@ -2113,7 +2117,8 @@ Object.assign(acts, {
     const dr = ui.drawer, d = dr.draft, tel = soDig(d.telefone).replace(/^55(?=\d{10,11}$)/, '');
     if (tel.length < 10 || tel.length > 11) { dr.erro = 'Telefone com DDD: 10 ou 11 números.'; return renderDrawer(); }
     if (d.loja.trim().length < 2 || d.cidade.trim().length < 2) { dr.erro = 'Informe o nome da loja e a cidade.'; return renderDrawer(); }
-    try { await API.salvarProspect(dr.id, { loja: d.loja.trim(), comprador: d.comprador.trim() || null, telefone: tel, cidade: d.cidade.trim(), uf: d.uf, email: d.email.trim() || null, observacoes: d.observacoes.trim() || null, proximo_contato: d.proximo_contato || null });
+    if (d.proximo_contato && !d.proximo_hora) { dr.erro = 'Informe também a hora do próximo contato.'; return renderDrawer(); }
+    try { await API.salvarProspect(dr.id, { loja: d.loja.trim(), comprador: d.comprador.trim() || null, telefone: tel, cidade: d.cidade.trim(), uf: d.uf, email: d.email.trim() || null, observacoes: d.observacoes.trim() || null, proximo_contato: d.proximo_contato || null, proximo_hora: d.proximo_contato ? d.proximo_hora || null : null });
       dr.draft = null; dr.erro = ''; refresh(); toast('Dados salvos.'); }
     catch (err) { dr.erro = /duplicate|23505|já existe/i.test(err.message + err.code) ? 'Já existe outra loja com este telefone.' : msgErro(err); renderDrawer(); }
   },

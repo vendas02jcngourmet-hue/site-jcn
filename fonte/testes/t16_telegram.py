@@ -43,14 +43,14 @@ try:
     ok(banco("select perfil_id = (select id from perfis where email = 'marina@jcn.test') from tg_destinos where chat_id = 555") == 't', 'vendedora ligou o próprio Telegram')
     pg.click('.drawer .x'); pg.reload(); W(2000); ok('Meu Telegram ✓' in pg.inner_text('.side'), 'menu mostra que está ligado')
     # retorno de ligação na hora pedida
-    hoje = banco("select (now() at time zone 'America/Sao_Paulo')::date"); hora = banco("select to_char((now() at time zone 'America/Sao_Paulo') + interval '2 hours', 'HH24:MI')")
+    hoje = banco("select (now() at time zone 'America/Sao_Paulo')::date"); hora = banco("select to_char((now() at time zone 'America/Sao_Paulo') + interval '2 hours', 'HH24:MI')"); aviso = banco("select to_char((now() at time zone 'America/Sao_Paulo') + interval '105 minutes', 'HH24:MI')")
     ir(pg, 'ligacoes'); pg.fill('#lg-telefone', '(17) 99111-2222'); W(600); pg.fill('#lg-loja', 'Casa das Panelas'); pg.fill('#lg-comprador', 'João'); pg.fill('#lg-cidade', 'Catanduva')
     pg.check('input[name=lgres][value=retornar]'); pg.fill('#lg-tratativa', 'Pediu para ligar depois das 14h.'); pg.fill('#lg-retornar_em', hoje); pg.fill('#lg-retornar_hora', hora); W()
     ok('Telegram' in pg.inner_text('.grid-ret'), 'o formulário avisa que o lembrete vai pelo Telegram')
     pg.screenshot(path=R + '/testes/shots/t16_ligacao.png', clip={'x': 240, 'y': 380, 'width': 1200, 'height': 420})
     pg.click('[data-act=lig-salvar]'); parado(pg, 900)
     q = banco("select chat_id || '|' || to_char(enviar_em at time zone 'America/Sao_Paulo', 'HH24:MI') || '|' || (texto like '%Casa das Panelas%(17) 99111-2222%')::text from tg_fila where chave like 'retorno:%' and enviado_em is null")
-    ok(q == f'555|{hora}|true', f'lembrete do retorno marcado para {hora}, no Telegram da vendedora: ' + q)
+    ok(q == f'555|{aviso}|true', f'retorno às {hora}: lembrete 15 minutos antes ({aviso}), no Telegram da vendedora: ' + q)
     pg.fill('#lg-telefone', '(17) 99111-2222'); W(800); pg.click('[data-act=lig-usar]'); W(); pg.check('input[name=lgres][value=cliente]'); pg.fill('#lg-tratativa', 'Fechou 2 fogões.'); pg.click('[data-act=lig-salvar]'); parado(pg, 900)
     ok(banco("select count(*) from tg_fila where chave like 'retorno:%' and enviado_em is null") == '0' and 'fechou com' in fila(-100111), 'nova ligação cancela o lembrete antigo; "fechou com" vai para Vendas'); limpar()
     # pedido com boleto

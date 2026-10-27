@@ -10,7 +10,7 @@ conta('Marina Tavares', 'marina@jcn.test', 'vendedor', 'Marina#2026'); conta('Br
 def registrar(pg, tel, loja, comp, cid, uf, res, trat, ret=''):
     pg.fill('#lg-telefone', tel); pg.wait_for_timeout(600); pg.fill('#lg-loja', loja); pg.fill('#lg-comprador', comp); pg.fill('#lg-cidade', cid); pg.select_option('#lg-uf', uf)
     pg.check(f'input[name=lgres][value={res}]'); pg.fill('#lg-tratativa', trat)
-    if ret: pg.fill('#lg-retornar_em', ret)
+    if ret: pg.fill('#lg-retornar_em', ret); pg.fill('#lg-retornar_hora', '14:30')
     pg.click('[data-act=lig-salvar]'); parado(pg, 900)
 try:
   with sync_playwright() as p:
@@ -37,14 +37,17 @@ try:
     pg.select_option('[data-k=cidade]', ''); W(); pg.select_option('[data-k=situacao]', 'retornar'); W(); ok(pg.locator('.tbl tbody tr').count() == 1 and 'Empório' in pg.inner_text('.tbl tbody'), 'filtro por situação')
     pg.select_option('[data-k=situacao]', ''); W(); pg.fill('#pcBusca', '98888'); W(700); ok(pg.locator('.tbl tbody tr').count() == 1, 'busca por parte do telefone')
     pg.fill('#pcBusca', ''); W(600); pg.click('[data-act=abrir-prospect] >> text=Casa das Panelas'); W()
-    t = pg.inner_text('.drawer'); ok('2 ligações' in t and 'Fechou 2 fogões' in t and 'Marina Tavares' in t, 'ficha da loja com o histórico das tratativas: ' + t[:300].replace('\n', ' / '))
+    t = pg.inner_text('.drawer'); ok('0 ligações' in t and 'Fechou 2 fogões' not in t, 'outro vendedor não vê as ligações da Marina na ficha da loja: ' + t[:200].replace('\n', ' / '))
     pg.fill('[data-pd=comprador]', 'João Batista'); pg.click('[data-act=prospect-salvar]'); parado(pg); ok(banco("select comprador from prospects where telefone='17991112222'") == 'João Batista', 'vendedor atualiza os dados da loja')
     ok(pg.locator('[data-act=prospect-apagar],[data-act=lig-apagar]').count() == 0, 'vendedor não apaga loja nem ligação')
     pg.click('[data-act=lig-desta]'); W(); ok(pg.input_value('#lg-loja') == 'Casa das Panelas' and 'Ligações' in pg.inner_text('.main h1'), '"Registrar nova ligação" abre o formulário já preenchido')
     with pg.expect_download() as d: ir(pg, 'clientes'); pg.click('[data-act=pc-csv]')
     csv = open(d.value.path(), encoding='utf-8-sig').read(); ok(csv.count('\n') == 3 and 'Casa das Panelas' in csv and 'Virou cliente' in csv, 'baixar a base em planilha')
     banco(f"update prospects set proximo_contato = '{ontem}' where telefone = '1735221000'")
-    pg.reload(); pg.wait_for_timeout(2500); ir(pg, 'ligacoes'); pg.uncheck('[data-chg=lig-meus]'); W(); ok('Empório Rio Preto' in pg.inner_text('.main'), 'retorno atrasado aparece em "Retornos para hoje e atrasados"')
+    pg.reload(); pg.wait_for_timeout(2500); ir(pg, 'ligacoes'); W()
+    ok('Empório Rio Preto' not in pg.inner_text('.main') and 'Casa das Panelas' not in pg.inner_text('.main') and pg.locator('[data-chg=lig-meus]').count() == 0, 'outro vendedor não vê ligações nem retornos da Marina')
+    sair(pg); entrar(pg, 'vendas', 'marina@jcn.test', 'Marina#2026'); ir(pg, 'ligacoes'); W()
+    ok('Empório Rio Preto' in pg.inner_text('.main') and 'às 14:30' in pg.inner_text('.main'), 'retorno atrasado aparece para a Marina, com a hora')
     sair(pg)
     # representante não vê
     entrar(pg, 'vendas', 'paulo@jcn.test', 'Paulo#2026'); ok('Ligações' not in nav(pg), 'representante não tem o registro de ligações'); sair(pg)
