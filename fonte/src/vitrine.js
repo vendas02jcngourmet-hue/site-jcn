@@ -24,7 +24,8 @@ function renderVitrine() {
   const todos = naVitrine(), cats = state.catalogo.categorias.filter(c => c.ativa && todos.some(p => p.cat === c.id));
   if (!cats.some(c => c.id === ui.catSite)) ui.catSite = cats[0] ? cats[0].id : '';
   const q = ui.buscaSite.trim().toLowerCase(), s = sacola(), n = qtdSacola(), meus = meusSite().length;
-  const achados = todos.filter(p => q ? (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q) : p.cat === ui.catSite);   // a busca olha a loja inteira
+  const achados0 = todos.filter(p => q ? (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q) : p.cat === ui.catSite);   // a busca olha a loja inteira
+  const ffs = ui.ffSite || (ui.ffSite = { bocas: '', perfil: '' }), achados = filtrarFogao(achados0, ffs);
   const gs = new Set(achados.map(p => p.grupo).filter(Boolean)), lista = todos.filter(p => achados.includes(p) || gs.has(p.grupo));
   const ms = modelos(lista); let sub = '';
   $('#vitrine').innerHTML = `
@@ -34,6 +35,7 @@ function renderVitrine() {
       ${meus ? `<button class="btn ghost" data-act="meus-site">Meus pedidos</button>` : `<button class="btn ghost" data-act="meus-site">Acompanhar pedido</button>`}
       <button class="btn" data-act="sacola" id="vitSacola">Sacola${n ? ` <span class="badge">${n}</span>` : ''}</button></div>
   </div>
+  ${chipsFogao(achados0, ffs, 'vit-ff')}
   ${q ? `<p class="note vit-res">${ms.length} ${ms.length === 1 ? 'produto encontrado' : 'produtos encontrados'} para "${esc(ui.buscaSite.trim())}". <button class="lnk" data-act="vit-limpar">Limpar a busca</button></p>` : ''}
   ${ms.length ? `<div class="cards shop vit-cards">${ms.map(g => { const p = g[0], varias = g.length > 1, ids = g.map(x => x.id).join(','), fo = fornosDe(p, 'site').length, no = g.reduce((t, x) => t + (s[x.id] || 0), 0);
     let titulo = ''; if (!q && (p.sub || '') !== sub) { sub = p.sub || ''; if (sub) titulo = `<h3 class="subh">${esc(sub)}</h3>`; }
@@ -128,6 +130,7 @@ function dMeusSite(dr) {
 
 Object.assign(acts, {
   'vit-cat': e => { ui.catSite = e.dataset.id; ui.buscaSite = ''; renderVitrine(); },
+  'vit-ff': e => { ui.ffSite[e.dataset.k] = e.dataset.v; renderVitrine(); },
   'vit-limpar': () => { ui.buscaSite = ''; renderVitrine(); const b = $('#vitBusca'); if (b) b.focus(); },
   'sacola': () => { ui.erroCompra = ''; ui.drawer = { tipo: 'sacola', pub: true }; renderDrawer(); },
   'sacola-add': e => { const p = prod(e.dataset.id); if (!p || !naVitrine().includes(p)) return toast('Este produto não está mais disponível.'); const s = sacola(); s[p.id] = Math.min(999, (s[p.id] || 0) + 1); guardarSacola(); renderVitrine(); toast(`${rotulo(p)} na sacola.`); },

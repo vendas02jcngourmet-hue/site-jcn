@@ -98,10 +98,13 @@ function dConta(d) {
 function vLoja(u) {
   const todos = liberadosDe(u), c = carrinho(), cats = [...new Set(todos.map(x => x.p.cat))], q = (ui.buscaLoja || '').trim().toLowerCase();
   if (!cats.includes(ui.catLoja)) ui.catLoja = '';
-  const achados = todos.filter(x => (!ui.catLoja || x.p.cat === ui.catLoja) && (!q || (x.p.nome + ' ' + x.p.codigo + ' ' + detalhe(x.p)).toLowerCase().includes(q))), n = qtdCarrinho();
+  const achados0 = todos.filter(x => (!ui.catLoja || x.p.cat === ui.catLoja) && (!q || (x.p.nome + ' ' + x.p.codigo + ' ' + detalhe(x.p)).toLowerCase().includes(q))), n = qtdCarrinho();
+  const ffl = ui.ffLoja || (ui.ffLoja = { bocas: '', perfil: '' }), okF = new Set(filtrarFogao(achados0.map(x => x.p), ffl)), achados = achados0.filter(x => okF.has(x.p));
   const gs = new Set(achados.map(x => x.p.grupo).filter(Boolean)), lista = todos.filter(x => achados.includes(x) || gs.has(x.p.grupo));
   return `<h1>Produtos</h1><p class="sub">Produtos e valores liberados pela JCN Gourmet para ${esc(u.nome)}. Abra um produto para ver a ficha; nos fogões com duas grelhas, você escolhe entre ferro fundido e aço carbono, e pode incluir o forno, que é opcional.</p>
-  ${todos.length ? `<div class="bar">${cats.length > 1 ? `<label class="sr" for="fl">Categoria</label><select id="fl" class="inp" style="width:auto" data-chg="filtro-loja"><option value="">Todas as categorias</option>${cats.map(k => `<option value="${esc(k)}" ${k === ui.catLoja ? 'selected' : ''}>${esc((cat(k) || {}).nome || '')}</option>`).join('')}</select>` : ''}
+  ${cats.length > 1 ? chipsCats(cats.map(k => cat(k) || { id: k, nome: k }), ui.catLoja, 'cat-loja') : ''}
+  ${chipsFogao(achados0.map(x => x.p), ffl, 'ff-loja')}
+  ${todos.length ? `<div class="bar">
     ${todos.length > 12 ? `<label class="sr" for="bl">Buscar</label><input id="bl" class="inp" style="width:min(16rem,100%)" type="search" placeholder="Buscar por nome ou código" data-chg="busca-loja" value="${esc(ui.buscaLoja || '')}">` : ''}
     <span class="grow"></span><button class="btn" data-act="nav" data-view="carrinho">${n ? `Ver carrinho (${n})` : 'Carrinho vazio'}</button></div>
   ${lista.length ? `<div class="cards shop">${modelos(lista).map(g => { const { p, preco } = g[0], varias = g.length > 1, ids = g.map(x => x.p.id).join(','), no = g.reduce((s, x) => s + (c[x.p.id] || 0), 0), fo = fornosDe(p, 'loja', u).length;
@@ -238,3 +241,4 @@ Object.assign(uploads, {
   'comp-loja': async f => { if (!PDF_IMG(f)) return toast('Envie o comprovante em imagem ou PDF.'); const m = await Files.put(f); checkout().comprovante = m.id; renderApp(); toast('Comprovante anexado.'); },
   'etq-loja': async f => { if (!ehPDF(f)) return toast(`${f.name || 'O arquivo'} não é PDF. As etiquetas precisam ser PDF.`); const m = await Files.put(f); checkout().etiquetas.push(m.id); renderApp(); }
 });
+Object.assign(acts, { 'cat-loja': e => { ui.catLoja = e.dataset.v; renderApp(); }, 'ff-loja': e => { ui.ffLoja[e.dataset.k] = e.dataset.v; renderApp(); } });

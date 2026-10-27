@@ -27,6 +27,10 @@ const rotuloOpcoes = (varias, forno) => varias ? (forno ? 'Escolher grelha e for
 const specDe = (p, k) => { const s = (p.specs || []).find(x => String(x[0]).trim().toLowerCase() === k); return s ? s[1] : ''; };
 const grelhaDe = p => p.grelha ? GRELHAS[p.grelha] : specDe(p, 'grelha');
 const ehFogao = p => !!grelhaDe(p);
+// menu de categorias em botões (catálogo, produtos, loja de e-commerce)
+function chipsCats(cats, atual, act, todas = 'Todas') {
+  return `<div class="ff-cats" role="group" aria-label="Categorias">${todas ? `<button class="chip${!atual ? ' on' : ''}" data-act="${act}" data-v="">${todas}</button>` : ''}${cats.map(c => `<button class="chip${c.id === atual ? ' on' : ''}" data-act="${act}" data-v="${esc(c.id)}">${esc(c.nome)}</button>`).join('')}</div>`;
+}
 // filtro dos fogões por número de bocas e por perfil (P5, P7, P8): usado no catálogo e no orçamento
 const bocasDe = p => { const m = String(p.nome || '').match(/(\d+)\s*bocas?\b/i); return m ? +m[1] : +specDe(p, 'bocas') || 0; };
 const perfilDe = p => { const m = (String(p.nome || '') + ' ' + specDe(p, 'linha')).match(/Perfil\s*(\d)/i); return m ? +m[1] : 0; };
@@ -85,7 +89,7 @@ const chip = ([t, c]) => `<span class="chip ${c}">${esc(t)}</span>`;
 const kb = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 const precoTxt = v => v > 0 ? brl(v) : 'A definir';   // o catálogo não traz preços: zero é "ainda sem preço"
 const totalPedido = p => p.itens.reduce((s, i) => s + i.qtd * i.preco, 0);
-const novoPedidoVazio = () => ({ cliente: { nome: '', doc: '', cidade: '' }, itens: [{ produto: '', qtd: 1 }], obs: '', comprovante: null, forma: 'pix', dias: [] });
+const novoPedidoVazio = () => ({ cliente: { nome: '', doc: '', cidade: '' }, itens: [], obs: '', comprovante: null, forma: 'pix', dias: [] });
 
 function abrirApp(portal) {
   if (portal) ui.portal = portal;
@@ -151,10 +155,13 @@ function vLogin() {
 function vProdutos() {
   const f = ui.filtroCat || '', q = (ui.buscaProd || '').trim().toLowerCase(), todos = state.catalogo.produtos;
   const semPreco = p => !(p.preco > 0);
-  const lista = todos.filter(p => (!f || p.cat === f) && (!ui.soSemPreco || semPreco(p)) && (!q || (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q)));
+  const lista0 = todos.filter(p => (!f || p.cat === f) && (!ui.soSemPreco || semPreco(p)) && (!q || (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q)));
+  const ffp = ui.ffProd || (ui.ffProd = { bocas: '', perfil: '' }), lista = filtrarFogao(lista0, ffp);
   const nSem = todos.filter(semPreco).length;
   return `<h1>Produtos</h1><p class="sub">Edite fotos, preços e especificações. O que estiver ativo aparece no site e nas tabelas de preço, sem mexer em código.</p>
-  <div class="bar"><label class="sr" for="fc">Categoria</label><select id="fc" class="inp" style="width:auto" data-chg="filtro-cat"><option value="">Todas as categorias</option>${state.catalogo.categorias.map(c => `<option value="${esc(c.id)}" ${c.id === f ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+  ${chipsCats(state.catalogo.categorias, f, 'cat-prod')}
+  ${chipsFogao(lista0, ffp, 'ff-prod')}
+  <div class="bar">
     <label class="sr" for="bp">Buscar produto</label><input id="bp" class="inp" style="width:min(16rem,100%)" type="search" placeholder="Buscar por nome ou código" data-chg="busca-prod" value="${esc(ui.buscaProd || '')}">
     <label class="check" style="font-weight:600"><input type="checkbox" id="sp" data-act="so-sem-preco" ${ui.soSemPreco ? 'checked' : ''}>Só sem preço</label>
     <span class="grow"></span><button class="btn" data-act="novo-produto">Adicionar produto</button></div>
@@ -270,7 +277,8 @@ function vCatalogo(u) {
   const gs = new Set(achados.map(p => p.grupo).filter(Boolean)), lista = todos.filter(p => achados.includes(p) || gs.has(p.grupo));   // achou uma grelha, mostra o fogão com as duas
   const ms = modelos(lista); let sub = '';
   return `<h1>${u.papel === 'admin' ? 'Tabela de preços' : 'Catálogo e preços'}</h1><p class="sub">Tabela de preços JCN de julho de 2026. Abra um produto para ver a ficha; nos fogões com duas grelhas, a escolha entre ferro fundido e aço carbono aparece ali, junto com o forno, que é opcional.</p>
-  <div class="bar"><label class="sr" for="fv">Categoria</label><select id="fv" class="inp" style="width:auto" data-chg="filtro-venda"><option value="">Todas as categorias</option>${cats.map(c => `<option value="${esc(c.id)}" ${c.id === ui.catVenda ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+  ${chipsCats(cats, ui.catVenda, 'cat-venda')}
+  <div class="bar">
     <label class="sr" for="bv">Buscar</label><input id="bv" class="inp" style="width:min(16rem,100%)" type="search" placeholder="Buscar por nome ou código" data-chg="busca-venda" value="${esc(ui.buscaVenda || '')}"></div>
   ${chipsFogao(achados0, ff, 'ff-venda')}
   <p class="note" style="margin:-4px 0 12px">${ms.length} ${ms.length === 1 ? 'produto' : 'produtos'}, ${lista.length} ${lista.length === 1 ? 'código' : 'códigos'}.</p>
@@ -345,7 +353,8 @@ function vNovoPedido(u) {
     <label class="field"><span>CPF ou CNPJ</span><input data-p="cliente.doc" inputmode="numeric" value="${esc(d.cliente.doc)}"></label></div>
     <label class="field"><span>Cidade e UF</span><input data-p="cliente.cidade" value="${esc(d.cliente.cidade)}"></label></div></div>
   <div class="panel"><h2>Itens</h2>
-    <div class="rows">${linhas}<button class="btn ghost sm" style="justify-self:start" data-act="item-add">Adicionar item</button></div>
+    ${montador(d, 'ped')}
+    <div class="rows">${d.itens.length ? linhas : '<p class="note" style="margin:0">Nenhum item ainda. Escolha os produtos acima.</p>'}<button class="btn ghost sm" style="justify-self:start" data-act="item-add">Adicionar item pela lista</button></div>
     <p style="text-align:right;margin:12px 0 0;font:italic 800 1.5rem/1 var(--f-ui)">Total ${brl(total)}</p></div>
   <div class="panel"><h2>Pagamento</h2>
     <div class="opts formas" role="radiogroup" aria-label="Forma de pagamento">
@@ -601,7 +610,7 @@ const acts = {
     toast(`${q} × ${nome}${fo ? ` + ${q} × ${fo.p.nome}` : ''} ${(ONDE[d.ctx] || ONDE.venda)[1]}.`);
   },
   'item-add': () => { ui.pedido.itens.push({ produto: '', qtd: 1 }); renderApp(); },
-  'item-rem': e => { ui.pedido.itens.splice(+e.dataset.i, 1); if (!ui.pedido.itens.length) ui.pedido.itens.push({ produto: '', qtd: 1 }); renderApp(); },
+  'item-rem': e => { ui.pedido.itens.splice(+e.dataset.i, 1); renderApp(); },
   'comp-rem': () => { Files.remove(ui.pedido.comprovante); ui.pedido.comprovante = null; renderApp(); },
   'limpar-pedido': () => { ui.pedido = novoPedidoVazio(); renderApp(); },
   'lancar-pedido': async () => {
@@ -709,4 +718,6 @@ document.addEventListener('keydown', ev => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('label.btn')) { ev.preventDefault(); const i = $('input[type=file]', ev.target); if (i) i.click(); }
 });
 // filtro de bocas e perfil no catálogo
-Object.assign(acts, { 'ff-venda': e => { const f = ui.ffVenda || (ui.ffVenda = { bocas: '', perfil: '' }); f[e.dataset.k] = e.dataset.v; renderApp(); } });
+Object.assign(acts, { 'cat-venda': e => { ui.catVenda = e.dataset.v; renderApp(); }, 'cat-prod': e => { ui.filtroCat = e.dataset.v; renderApp(); },
+  'ff-prod': e => { ui.ffProd[e.dataset.k] = e.dataset.v; renderApp(); },
+  'ff-venda': e => { const f = ui.ffVenda || (ui.ffVenda = { bocas: '', perfil: '' }); f[e.dataset.k] = e.dataset.v; renderApp(); } });

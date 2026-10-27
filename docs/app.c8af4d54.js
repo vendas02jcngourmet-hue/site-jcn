@@ -566,6 +566,10 @@ const rotuloOpcoes = (varias, forno) => varias ? (forno ? 'Escolher grelha e for
 const specDe = (p, k) => { const s = (p.specs || []).find(x => String(x[0]).trim().toLowerCase() === k); return s ? s[1] : ''; };
 const grelhaDe = p => p.grelha ? GRELHAS[p.grelha] : specDe(p, 'grelha');
 const ehFogao = p => !!grelhaDe(p);
+// menu de categorias em botões (catálogo, produtos, loja de e-commerce)
+function chipsCats(cats, atual, act, todas = 'Todas') {
+  return `<div class="ff-cats" role="group" aria-label="Categorias">${todas ? `<button class="chip${!atual ? ' on' : ''}" data-act="${act}" data-v="">${todas}</button>` : ''}${cats.map(c => `<button class="chip${c.id === atual ? ' on' : ''}" data-act="${act}" data-v="${esc(c.id)}">${esc(c.nome)}</button>`).join('')}</div>`;
+}
 // filtro dos fogões por número de bocas e por perfil (P5, P7, P8): usado no catálogo e no orçamento
 const bocasDe = p => { const m = String(p.nome || '').match(/(\d+)\s*bocas?\b/i); return m ? +m[1] : +specDe(p, 'bocas') || 0; };
 const perfilDe = p => { const m = (String(p.nome || '') + ' ' + specDe(p, 'linha')).match(/Perfil\s*(\d)/i); return m ? +m[1] : 0; };
@@ -624,7 +628,7 @@ const chip = ([t, c]) => `<span class="chip ${c}">${esc(t)}</span>`;
 const kb = n => n > 1048576 ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
 const precoTxt = v => v > 0 ? brl(v) : 'A definir';   // o catálogo não traz preços: zero é "ainda sem preço"
 const totalPedido = p => p.itens.reduce((s, i) => s + i.qtd * i.preco, 0);
-const novoPedidoVazio = () => ({ cliente: { nome: '', doc: '', cidade: '' }, itens: [{ produto: '', qtd: 1 }], obs: '', comprovante: null, forma: 'pix', dias: [] });
+const novoPedidoVazio = () => ({ cliente: { nome: '', doc: '', cidade: '' }, itens: [], obs: '', comprovante: null, forma: 'pix', dias: [] });
 
 function abrirApp(portal) {
   if (portal) ui.portal = portal;
@@ -690,10 +694,13 @@ function vLogin() {
 function vProdutos() {
   const f = ui.filtroCat || '', q = (ui.buscaProd || '').trim().toLowerCase(), todos = state.catalogo.produtos;
   const semPreco = p => !(p.preco > 0);
-  const lista = todos.filter(p => (!f || p.cat === f) && (!ui.soSemPreco || semPreco(p)) && (!q || (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q)));
+  const lista0 = todos.filter(p => (!f || p.cat === f) && (!ui.soSemPreco || semPreco(p)) && (!q || (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q)));
+  const ffp = ui.ffProd || (ui.ffProd = { bocas: '', perfil: '' }), lista = filtrarFogao(lista0, ffp);
   const nSem = todos.filter(semPreco).length;
   return `<h1>Produtos</h1><p class="sub">Edite fotos, preços e especificações. O que estiver ativo aparece no site e nas tabelas de preço, sem mexer em código.</p>
-  <div class="bar"><label class="sr" for="fc">Categoria</label><select id="fc" class="inp" style="width:auto" data-chg="filtro-cat"><option value="">Todas as categorias</option>${state.catalogo.categorias.map(c => `<option value="${esc(c.id)}" ${c.id === f ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+  ${chipsCats(state.catalogo.categorias, f, 'cat-prod')}
+  ${chipsFogao(lista0, ffp, 'ff-prod')}
+  <div class="bar">
     <label class="sr" for="bp">Buscar produto</label><input id="bp" class="inp" style="width:min(16rem,100%)" type="search" placeholder="Buscar por nome ou código" data-chg="busca-prod" value="${esc(ui.buscaProd || '')}">
     <label class="check" style="font-weight:600"><input type="checkbox" id="sp" data-act="so-sem-preco" ${ui.soSemPreco ? 'checked' : ''}>Só sem preço</label>
     <span class="grow"></span><button class="btn" data-act="novo-produto">Adicionar produto</button></div>
@@ -809,7 +816,8 @@ function vCatalogo(u) {
   const gs = new Set(achados.map(p => p.grupo).filter(Boolean)), lista = todos.filter(p => achados.includes(p) || gs.has(p.grupo));   // achou uma grelha, mostra o fogão com as duas
   const ms = modelos(lista); let sub = '';
   return `<h1>${u.papel === 'admin' ? 'Tabela de preços' : 'Catálogo e preços'}</h1><p class="sub">Tabela de preços JCN de julho de 2026. Abra um produto para ver a ficha; nos fogões com duas grelhas, a escolha entre ferro fundido e aço carbono aparece ali, junto com o forno, que é opcional.</p>
-  <div class="bar"><label class="sr" for="fv">Categoria</label><select id="fv" class="inp" style="width:auto" data-chg="filtro-venda"><option value="">Todas as categorias</option>${cats.map(c => `<option value="${esc(c.id)}" ${c.id === ui.catVenda ? 'selected' : ''}>${esc(c.nome)}</option>`).join('')}</select>
+  ${chipsCats(cats, ui.catVenda, 'cat-venda')}
+  <div class="bar">
     <label class="sr" for="bv">Buscar</label><input id="bv" class="inp" style="width:min(16rem,100%)" type="search" placeholder="Buscar por nome ou código" data-chg="busca-venda" value="${esc(ui.buscaVenda || '')}"></div>
   ${chipsFogao(achados0, ff, 'ff-venda')}
   <p class="note" style="margin:-4px 0 12px">${ms.length} ${ms.length === 1 ? 'produto' : 'produtos'}, ${lista.length} ${lista.length === 1 ? 'código' : 'códigos'}.</p>
@@ -884,7 +892,8 @@ function vNovoPedido(u) {
     <label class="field"><span>CPF ou CNPJ</span><input data-p="cliente.doc" inputmode="numeric" value="${esc(d.cliente.doc)}"></label></div>
     <label class="field"><span>Cidade e UF</span><input data-p="cliente.cidade" value="${esc(d.cliente.cidade)}"></label></div></div>
   <div class="panel"><h2>Itens</h2>
-    <div class="rows">${linhas}<button class="btn ghost sm" style="justify-self:start" data-act="item-add">Adicionar item</button></div>
+    ${montador(d, 'ped')}
+    <div class="rows">${d.itens.length ? linhas : '<p class="note" style="margin:0">Nenhum item ainda. Escolha os produtos acima.</p>'}<button class="btn ghost sm" style="justify-self:start" data-act="item-add">Adicionar item pela lista</button></div>
     <p style="text-align:right;margin:12px 0 0;font:italic 800 1.5rem/1 var(--f-ui)">Total ${brl(total)}</p></div>
   <div class="panel"><h2>Pagamento</h2>
     <div class="opts formas" role="radiogroup" aria-label="Forma de pagamento">
@@ -1140,7 +1149,7 @@ const acts = {
     toast(`${q} × ${nome}${fo ? ` + ${q} × ${fo.p.nome}` : ''} ${(ONDE[d.ctx] || ONDE.venda)[1]}.`);
   },
   'item-add': () => { ui.pedido.itens.push({ produto: '', qtd: 1 }); renderApp(); },
-  'item-rem': e => { ui.pedido.itens.splice(+e.dataset.i, 1); if (!ui.pedido.itens.length) ui.pedido.itens.push({ produto: '', qtd: 1 }); renderApp(); },
+  'item-rem': e => { ui.pedido.itens.splice(+e.dataset.i, 1); renderApp(); },
   'comp-rem': () => { Files.remove(ui.pedido.comprovante); ui.pedido.comprovante = null; renderApp(); },
   'limpar-pedido': () => { ui.pedido = novoPedidoVazio(); renderApp(); },
   'lancar-pedido': async () => {
@@ -1248,7 +1257,9 @@ document.addEventListener('keydown', ev => {
   if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('label.btn')) { ev.preventDefault(); const i = $('input[type=file]', ev.target); if (i) i.click(); }
 });
 // filtro de bocas e perfil no catálogo
-Object.assign(acts, { 'ff-venda': e => { const f = ui.ffVenda || (ui.ffVenda = { bocas: '', perfil: '' }); f[e.dataset.k] = e.dataset.v; renderApp(); } });
+Object.assign(acts, { 'cat-venda': e => { ui.catVenda = e.dataset.v; renderApp(); }, 'cat-prod': e => { ui.filtroCat = e.dataset.v; renderApp(); },
+  'ff-prod': e => { ui.ffProd[e.dataset.k] = e.dataset.v; renderApp(); },
+  'ff-venda': e => { const f = ui.ffVenda || (ui.ffVenda = { bocas: '', perfil: '' }); f[e.dataset.k] = e.dataset.v; renderApp(); } });
 
 /* =====================================================================
    E-COMMERCE
@@ -1350,10 +1361,13 @@ function dConta(d) {
 function vLoja(u) {
   const todos = liberadosDe(u), c = carrinho(), cats = [...new Set(todos.map(x => x.p.cat))], q = (ui.buscaLoja || '').trim().toLowerCase();
   if (!cats.includes(ui.catLoja)) ui.catLoja = '';
-  const achados = todos.filter(x => (!ui.catLoja || x.p.cat === ui.catLoja) && (!q || (x.p.nome + ' ' + x.p.codigo + ' ' + detalhe(x.p)).toLowerCase().includes(q))), n = qtdCarrinho();
+  const achados0 = todos.filter(x => (!ui.catLoja || x.p.cat === ui.catLoja) && (!q || (x.p.nome + ' ' + x.p.codigo + ' ' + detalhe(x.p)).toLowerCase().includes(q))), n = qtdCarrinho();
+  const ffl = ui.ffLoja || (ui.ffLoja = { bocas: '', perfil: '' }), okF = new Set(filtrarFogao(achados0.map(x => x.p), ffl)), achados = achados0.filter(x => okF.has(x.p));
   const gs = new Set(achados.map(x => x.p.grupo).filter(Boolean)), lista = todos.filter(x => achados.includes(x) || gs.has(x.p.grupo));
   return `<h1>Produtos</h1><p class="sub">Produtos e valores liberados pela JCN Gourmet para ${esc(u.nome)}. Abra um produto para ver a ficha; nos fogões com duas grelhas, você escolhe entre ferro fundido e aço carbono, e pode incluir o forno, que é opcional.</p>
-  ${todos.length ? `<div class="bar">${cats.length > 1 ? `<label class="sr" for="fl">Categoria</label><select id="fl" class="inp" style="width:auto" data-chg="filtro-loja"><option value="">Todas as categorias</option>${cats.map(k => `<option value="${esc(k)}" ${k === ui.catLoja ? 'selected' : ''}>${esc((cat(k) || {}).nome || '')}</option>`).join('')}</select>` : ''}
+  ${cats.length > 1 ? chipsCats(cats.map(k => cat(k) || { id: k, nome: k }), ui.catLoja, 'cat-loja') : ''}
+  ${chipsFogao(achados0.map(x => x.p), ffl, 'ff-loja')}
+  ${todos.length ? `<div class="bar">
     ${todos.length > 12 ? `<label class="sr" for="bl">Buscar</label><input id="bl" class="inp" style="width:min(16rem,100%)" type="search" placeholder="Buscar por nome ou código" data-chg="busca-loja" value="${esc(ui.buscaLoja || '')}">` : ''}
     <span class="grow"></span><button class="btn" data-act="nav" data-view="carrinho">${n ? `Ver carrinho (${n})` : 'Carrinho vazio'}</button></div>
   ${lista.length ? `<div class="cards shop">${modelos(lista).map(g => { const { p, preco } = g[0], varias = g.length > 1, ids = g.map(x => x.p.id).join(','), no = g.reduce((s, x) => s + (c[x.p.id] || 0), 0), fo = fornosDe(p, 'loja', u).length;
@@ -1490,6 +1504,7 @@ Object.assign(uploads, {
   'comp-loja': async f => { if (!PDF_IMG(f)) return toast('Envie o comprovante em imagem ou PDF.'); const m = await Files.put(f); checkout().comprovante = m.id; renderApp(); toast('Comprovante anexado.'); },
   'etq-loja': async f => { if (!ehPDF(f)) return toast(`${f.name || 'O arquivo'} não é PDF. As etiquetas precisam ser PDF.`); const m = await Files.put(f); checkout().etiquetas.push(m.id); renderApp(); }
 });
+Object.assign(acts, { 'cat-loja': e => { ui.catLoja = e.dataset.v; renderApp(); }, 'ff-loja': e => { ui.ffLoja[e.dataset.k] = e.dataset.v; renderApp(); } });
 
 /* ---------- Loja do site: consumidor final, sem login ----------
    Fica no fim da página inicial. Preço = tabela JCN + acréscimo (precoSite). A grelha é obrigatória e o forno é
@@ -1517,7 +1532,8 @@ function renderVitrine() {
   const todos = naVitrine(), cats = state.catalogo.categorias.filter(c => c.ativa && todos.some(p => p.cat === c.id));
   if (!cats.some(c => c.id === ui.catSite)) ui.catSite = cats[0] ? cats[0].id : '';
   const q = ui.buscaSite.trim().toLowerCase(), s = sacola(), n = qtdSacola(), meus = meusSite().length;
-  const achados = todos.filter(p => q ? (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q) : p.cat === ui.catSite);   // a busca olha a loja inteira
+  const achados0 = todos.filter(p => q ? (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q) : p.cat === ui.catSite);   // a busca olha a loja inteira
+  const ffs = ui.ffSite || (ui.ffSite = { bocas: '', perfil: '' }), achados = filtrarFogao(achados0, ffs);
   const gs = new Set(achados.map(p => p.grupo).filter(Boolean)), lista = todos.filter(p => achados.includes(p) || gs.has(p.grupo));
   const ms = modelos(lista); let sub = '';
   $('#vitrine').innerHTML = `
@@ -1527,6 +1543,7 @@ function renderVitrine() {
       ${meus ? `<button class="btn ghost" data-act="meus-site">Meus pedidos</button>` : `<button class="btn ghost" data-act="meus-site">Acompanhar pedido</button>`}
       <button class="btn" data-act="sacola" id="vitSacola">Sacola${n ? ` <span class="badge">${n}</span>` : ''}</button></div>
   </div>
+  ${chipsFogao(achados0, ffs, 'vit-ff')}
   ${q ? `<p class="note vit-res">${ms.length} ${ms.length === 1 ? 'produto encontrado' : 'produtos encontrados'} para "${esc(ui.buscaSite.trim())}". <button class="lnk" data-act="vit-limpar">Limpar a busca</button></p>` : ''}
   ${ms.length ? `<div class="cards shop vit-cards">${ms.map(g => { const p = g[0], varias = g.length > 1, ids = g.map(x => x.id).join(','), fo = fornosDe(p, 'site').length, no = g.reduce((t, x) => t + (s[x.id] || 0), 0);
     let titulo = ''; if (!q && (p.sub || '') !== sub) { sub = p.sub || ''; if (sub) titulo = `<h3 class="subh">${esc(sub)}</h3>`; }
@@ -1621,6 +1638,7 @@ function dMeusSite(dr) {
 
 Object.assign(acts, {
   'vit-cat': e => { ui.catSite = e.dataset.id; ui.buscaSite = ''; renderVitrine(); },
+  'vit-ff': e => { ui.ffSite[e.dataset.k] = e.dataset.v; renderVitrine(); },
   'vit-limpar': () => { ui.buscaSite = ''; renderVitrine(); const b = $('#vitBusca'); if (b) b.focus(); },
   'sacola': () => { ui.erroCompra = ''; ui.drawer = { tipo: 'sacola', pub: true }; renderDrawer(); },
   'sacola-add': e => { const p = prod(e.dataset.id); if (!p || !naVitrine().includes(p)) return toast('Este produto não está mais disponível.'); const s = sacola(); s[p.id] = Math.min(999, (s[p.id] || 0) + 1); guardarSacola(); renderVitrine(); toast(`${rotulo(p)} na sacola.`); },
@@ -2912,8 +2930,8 @@ const novoOrc = pid => ({ id: '', prospect_id: pid || '', situacao: 'aberto', va
 const rascunhoOrc = o => ({ id: o.id, numero: o.numero, prospect_id: o.prospect_id, ligacao_id: o.ligacao_id, vendedor_id: o.vendedor_id, criado_em: o.criado_em, situacao: o.situacao, validade: o.validade || '', obs: o.obs || '',
   motivo: o.motivo || '', motivo_detalhe: o.motivo_detalhe || '', itens: o.itens.length ? o.itens.map(i => ({ produto_id: i.produto_id || '', descricao: i.descricao, codigo: i.codigo || '', quantidade: i.quantidade, preco_unit: i.preco_unit, livre: !i.produto_id })) : [], aba: o.situacao === 'nao_concluido' ? 'motivo' : 'itens' });
 const chipOrc = k => chip(SIT_ORC[k] || [k, '']);
-const orcDraft = onde => onde === 'lig' ? ui.lig && ui.lig.orc : ui.drawer && ui.drawer.tipo === 'orcamento' ? ui.drawer.draft : null;
-const redesenharOrc = onde => onde === 'lig' ? renderApp() : renderDrawer();
+const orcDraft = onde => onde === 'ped' ? ui.pedido : onde === 'lig' ? ui.lig && ui.lig.orc : ui.drawer && ui.drawer.tipo === 'orcamento' ? ui.drawer.draft : null;
+const redesenharOrc = onde => onde === 'lig' || onde === 'ped' ? renderApp() : renderDrawer();
 const resumoItens = o => (o.itens || []).map(i => `${i.quantidade}× ${i.descricao}`).join(', ');
 function avisoOrc() {
   return crm().orcIndisponivel ? `<p class="note" style="margin:8px 0 0"><b>Falta um passo no banco para os orçamentos:</b> rode o arquivo <b>atualizacao-3.sql</b> no Supabase (SQL Editor, colar tudo, Run).</p>` : '';
@@ -2968,7 +2986,7 @@ function montador(d, onde) {
           ${fs.map(f => `<button class="pk-op${f === fa ? ' sel' : ''}" ${de('pk-forno', ` data-id="${esc(f.p.id)}"`)} aria-pressed="${f === fa}"><b>${esc(nomeForno(f.p, true))}</b><small>${esc(f.p.codigo || '')}</small><span>+ ${brl(f.preco)}</span></button>`).join('')}</div>`
           : ehFogao(p) ? `<p class="note">${specDe(p, 'forno interno') || specDe(p, 'forno') ? 'Este fogão já vem com forno.' : 'Este modelo não leva forno avulso.'}</p>` : ''}
         <div class="pk-fim"><div class="qty"><button ${de('pk-qtd', ' data-d="-1"')} aria-label="Diminuir">−</button><b class="pk-q">${k.qtd || 1}</b><button ${de('pk-qtd', ' data-d="1"')} aria-label="Aumentar">+</button></div>
-          <button class="btn" ${de('pk-add')} ${at ? '' : 'disabled'}>${at ? `Adicionar ao orçamento · ${brl(tot)}` : 'Escolha a grelha'}</button></div>
+          <button class="btn" ${de('pk-add')} ${at && (onde !== 'ped' || at.preco > 0) ? '' : 'disabled'}>${!at ? 'Escolha a grelha' : onde === 'ped' && !(at.preco > 0) ? 'Sem preço na tabela' : `Adicionar ${onde === 'ped' ? 'ao pedido' : 'ao orçamento'} · ${brl(tot)}`}</button></div>
       </div></div></div>`;
   }
   const q = (k.busca || '').trim().toLowerCase(), cats = state.catalogo.categorias.filter(c => c.ativa !== false && ativos.some(p => p.cat === c.id));
@@ -2976,7 +2994,7 @@ function montador(d, onde) {
   const lista = modelos(filtrarFogao(base, k));
   return `<div class="mont" id="mont-${onde}"><div class="mont-top"><b>Adicionar produto</b>
       <input class="inp" type="search" placeholder="Buscar por nome ou código" data-pk="busca" data-onde="${onde}" value="${esc(k.busca)}" aria-label="Buscar produto">
-      <button class="btn ghost sm" ${de('pk-livre')}>Item avulso (escrever)</button></div>
+      ${onde === 'ped' ? '' : `<button class="btn ghost sm" ${de('pk-livre')}>Item avulso (escrever)</button>`}</div>
     ${q ? '' : `<div class="pk-cats">${cats.map(c => `<button class="chip${c.id === k.cat ? ' on' : ''}" ${de('pk-cat', ` data-id="${esc(c.id)}"`)}>${esc(c.nome)}</button>`).join('')}</div>`}
     ${chipsFogao(base, k, 'pk-ff', ` data-onde="${onde}"`)}
     <div class="pk-grid">${lista.slice(0, 60).map(g => { const p = g[0], mn = Math.min(...g.map(x => x.preco > 0 ? x.preco : Infinity)), fo = g.some(x => (x.fornos || []).length);
@@ -3092,6 +3110,13 @@ Object.assign(acts, {
   'pk-add': e => {
     const [d, k] = pk(e); if (!d) return; const p = prod(k.sel); if (!p) return;
     const q = k.qtd || 1, f = k.forno && prod(k.forno);
+    if (e.dataset.onde === 'ped') {                                   // pedido: itens com o código e a quantidade
+      if (!(p.preco > 0)) return;
+      d.itens = d.itens.filter(i => i.produto);
+      const por = x => { const ja = d.itens.find(i => i.produto === x.id); if (ja) ja.qtd = (+ja.qtd || 0) + q; else d.itens.push({ produto: x.id, qtd: q }); };
+      por(p); if (f) por(f); Object.assign(k, { modelo: '', sel: '', forno: '', qtd: 1 });
+      renderApp(); return toast(`${q} × ${rotulo(p)}${f ? ' + forno' : ''} no pedido.`);
+    }
     d.itens = d.itens.filter(i => i.produto_id || (i.descricao || '').trim());
     const por = (x) => { const ja = d.itens.find(i => i.produto_id === x.id); if (ja) ja.quantidade = (+ja.quantidade || 0) + q; else d.itens.push({ produto_id: x.id, descricao: rotulo(x), codigo: x.codigo || '', quantidade: q, preco_unit: x.preco || 0 }); };
     por(p); if (f) por(f);

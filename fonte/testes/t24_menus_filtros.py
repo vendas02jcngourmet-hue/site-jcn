@@ -1,0 +1,51 @@
+# Menus de categoria em botões e filtro de bocas/perfil: loja da página inicial, loja de e-commerce, produtos, tabela de preços e lançar pedido com cliques
+import sys; sys.path.insert(0, '/home/claude/real/testes')
+from base import *
+srv = subir()
+banco("insert into auth.users (email, encrypted_password, email_confirmed_at) values ('marina@jcn.test', crypt('Marina#2026', gen_salt('bf', 4)), now()), ('loja-lojafogo@jcngourmet.com.br', crypt('Loja#2026x', gen_salt('bf', 4)), now())")
+banco("insert into perfis (id, nome, email, papel, empresa) select id, 'Marina', email, 'vendedor', 'JCN Gourmet' from auth.users where email = 'marina@jcn.test'")
+banco("insert into perfis (id, nome, email, login, papel, vendedor_id) select u.id, 'Loja Fogo', u.email, 'lojafogo', 'ecommerce', (select id from perfis where email = 'marina@jcn.test') from auth.users u where u.email = 'loja-lojafogo@jcngourmet.com.br'")
+banco("insert into catalogo_loja (loja_id, produto_id, preco) select (select id from perfis where login = 'lojafogo'), p.id, 999 from produtos p where p.codigo in ('FF011', 'FF996', 'FF009', 'FF105', 'FF503', 'FG4FSD-AZU')")
+try:
+  with sync_playwright() as p:
+    br = p.chromium.launch(); pg, errs = pagina(br); W = lambda ms=300: pg.wait_for_timeout(ms)
+    # 1. loja da página inicial
+    pg.goto(B); W(1500); pg.evaluate("document.querySelector('#loja').scrollIntoView()"); W()
+    pg.click('.vit-cats button:has-text("Fogões baixa pressão")'); W()
+    ok(pg.locator('#vitrine .ff-linha').count() == 2, 'loja da página inicial: filtro de bocas e perfil')
+    pg.click('#vitrine [data-act=vit-ff][data-k=bocas][data-v="2"]'); W(); pg.click('#vitrine [data-act=vit-ff][data-k=perfil][data-v="5"]'); W()
+    nomes = pg.locator('.vit-cards .card h3').all_inner_texts()
+    ok(nomes and all('2 bocas' in n and 'Perfil 5' in n for n in nomes), 'loja do site, 2 bocas P5: ' + ' | '.join(nomes)[:200])
+    pg.evaluate("document.querySelector('#loja').scrollIntoView()"); W(); pg.screenshot(path=R + '/testes/shots/t24_site.png')
+    # 2. lançar pedido com cliques
+    entrar(pg, 'vendas', 'marina@jcn.test', 'Marina#2026'); ir(pg, 'novo-pedido')
+    ok(pg.locator('#mont-ped').count() == 1 and pg.locator('#mont-ped [data-act=pk-livre]').count() == 0, 'lançar pedido tem o menu de produtos com cliques (sem item avulso)')
+    pg.click('#mont-ped .pk-cats .chip:has-text("Fogões baixa pressão")'); W(); pg.click('#mont-ped [data-act=pk-ff][data-k=bocas][data-v="4"]'); W()
+    pg.fill('#mont-ped [data-pk=busca]', 'FF011'); W(700); pg.click('#mont-ped .pk-card >> nth=0'); W()
+    pg.click('#mont-ped [data-act=pk-grelha][data-id]:has-text("Aço carbono")'); W(); pg.click('#mont-ped [data-act=pk-forno]:has-text("tampa de vidro") >> nth=0'); W()
+    pg.screenshot(path=R + '/testes/shots/t24_pedido_escolha.png', full_page=True)
+    pg.click('#mont-ped [data-act=pk-add]'); W()
+    vals = [pg.locator('select[data-chg=item-prod]').nth(i).input_value() for i in range(pg.locator('select[data-chg=item-prod]').count())]
+    ok(len(vals) == 2 and 'no pedido' in toast(pg), 'fogão e forno entram no pedido: ' + toast(pg))
+    pg.fill('[data-p="cliente.nome"]', 'Restaurante Teste'); pg.click('[data-act=lancar-pedido]'); parado(pg, 1200)
+    ok(banco("select string_agg(p.codigo, ',' order by p.codigo) from itens_pedido i join produtos p on p.id = i.produto_id") == 'FF163TV,FF996', 'pedido gravado com FF996 + FF163TV')
+    # 3. tabela de preços: categorias em botões
+    ir(pg, 'catalogo'); ok(pg.locator('.ff-cats .chip').count() > 10 and pg.locator('#fv').count() == 0, 'tabela de preços: categorias em botões')
+    pg.click('[data-act=cat-venda][data-v=industriais]'); W(); pg.click('[data-act=ff-venda][data-k=perfil][data-v="8"]'); W()
+    nomes = pg.locator('.cards .card h3').all_inner_texts(); ok(nomes and all('Perfil 8' in n for n in nomes), 'tabela de preços, P8: %d' % len(nomes))
+    pg.screenshot(path=R + '/testes/shots/t24_tabela.png'); sair(pg)
+    # 4. produtos (administração)
+    entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026'); ir(pg, 'produtos'); pg.click('[data-act=cat-prod][data-v=industriais]'); W()
+    pg.click('[data-act=ff-prod][data-k=bocas][data-v="2"]'); W(); pg.click('[data-act=ff-prod][data-k=perfil][data-v="7"]'); W()
+    t = pg.locator('tr:has([data-act=editar-produto])').all_inner_texts()
+    ok(t and all('2 bocas' in x for x in t) and not any('Perfil 5' in x or 'Perfil 8' in x for x in t), 'produtos: 2 bocas P7 (%d linhas)' % len(t))
+    pg.screenshot(path=R + '/testes/shots/t24_produtos.png'); sair(pg)
+    # 5. loja de e-commerce
+    entrar(pg, 'ecommerce', 'lojafogo', 'Loja#2026x'); W(800)
+    ok(pg.locator('[data-act=cat-loja]').count() == 3, 'loja de e-commerce: categorias em botões')
+    pg.click('[data-act=cat-loja][data-v=industriais]'); W(); pg.click('[data-act=ff-loja][data-k=perfil][data-v="8"]'); W()
+    ok(pg.locator('.cards.shop .card').count() == 1 and 'FF503' in pg.inner_text('.cards.shop'), 'loja de e-commerce, P8: só o FF503')
+    pg.screenshot(path=R + '/testes/shots/t24_ecommerce.png')
+    ok(not errs, 'sem erros: ' + ' | '.join(errs)[:200])
+finally: srv.terminate()
+print('FALHAS:', F if F else 'nenhuma')

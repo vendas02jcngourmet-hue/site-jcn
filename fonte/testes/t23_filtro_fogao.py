@@ -23,7 +23,7 @@ try:
     pg.click('#orcLig [data-act=pk-voltar]'); W(); ok('on' in pg.get_attribute('#orcLig [data-act=pk-ff][data-k=bocas][data-v="2"]', 'class'), 'o filtro continua ao voltar para a lista')
     pg.click('#orcLig .pk-cats .chip:has-text("Linha Colors")'); W(); ok(pg.locator('#orcLig .ff').count() == 0 and pg.locator('#orcLig .pk-card').count() == 11, 'Linha Colors: sem filtro e com os 11 fogões')
     # catálogo
-    ir(pg, 'catalogo'); pg.select_option('#fv', 'altapressao'); W()
+    ir(pg, 'catalogo'); pg.click('[data-act=cat-venda][data-v=altapressao]'); W()
     pg.click('[data-act=ff-venda][data-k=bocas][data-v="4"]'); W(); nomes = pg.locator('.cards .card h3').all_inner_texts()
     ok(nomes and all('4 bocas' in n for n in nomes), 'catálogo, alta pressão de 4 bocas: ' + ' | '.join(nomes))
     pg.screenshot(path=R + '/testes/shots/t23_catalogo.png')

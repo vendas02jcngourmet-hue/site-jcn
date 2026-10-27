@@ -668,3 +668,7 @@ fieldset.res legend{font-weight:600;font-size:.9rem;margin-bottom:6px;padding:0}
 .ff .chip{border:1px solid var(--line);cursor:pointer;font:700 .85rem/1 var(--f-ui);padding:6px 12px}
 .ff .chip.on{background:var(--brand-solid);color:var(--on-brand);border-color:var(--brand-solid)}
 .ff .chip:disabled{opacity:.45;cursor:default}
+.ff-cats{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.ff-cats .chip{border:1px solid var(--line);cursor:pointer;font:700 .88rem/1 var(--f-ui);padding:8px 14px}
+.ff-cats .chip.on{background:var(--brand-solid);color:var(--on-brand);border-color:var(--brand-solid)}
+.vit-cards + .ff, #vitrine .ff{margin:12px 0}

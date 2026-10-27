@@ -15,8 +15,8 @@ const novoOrc = pid => ({ id: '', prospect_id: pid || '', situacao: 'aberto', va
 const rascunhoOrc = o => ({ id: o.id, numero: o.numero, prospect_id: o.prospect_id, ligacao_id: o.ligacao_id, vendedor_id: o.vendedor_id, criado_em: o.criado_em, situacao: o.situacao, validade: o.validade || '', obs: o.obs || '',
   motivo: o.motivo || '', motivo_detalhe: o.motivo_detalhe || '', itens: o.itens.length ? o.itens.map(i => ({ produto_id: i.produto_id || '', descricao: i.descricao, codigo: i.codigo || '', quantidade: i.quantidade, preco_unit: i.preco_unit, livre: !i.produto_id })) : [], aba: o.situacao === 'nao_concluido' ? 'motivo' : 'itens' });
 const chipOrc = k => chip(SIT_ORC[k] || [k, '']);
-const orcDraft = onde => onde === 'lig' ? ui.lig && ui.lig.orc : ui.drawer && ui.drawer.tipo === 'orcamento' ? ui.drawer.draft : null;
-const redesenharOrc = onde => onde === 'lig' ? renderApp() : renderDrawer();
+const orcDraft = onde => onde === 'ped' ? ui.pedido : onde === 'lig' ? ui.lig && ui.lig.orc : ui.drawer && ui.drawer.tipo === 'orcamento' ? ui.drawer.draft : null;
+const redesenharOrc = onde => onde === 'lig' || onde === 'ped' ? renderApp() : renderDrawer();
 const resumoItens = o => (o.itens || []).map(i => `${i.quantidade}× ${i.descricao}`).join(', ');
 function avisoOrc() {
   return crm().orcIndisponivel ? `<p class="note" style="margin:8px 0 0"><b>Falta um passo no banco para os orçamentos:</b> rode o arquivo <b>atualizacao-3.sql</b> no Supabase (SQL Editor, colar tudo, Run).</p>` : '';
@@ -71,7 +71,7 @@ function montador(d, onde) {
           ${fs.map(f => `<button class="pk-op${f === fa ? ' sel' : ''}" ${de('pk-forno', ` data-id="${esc(f.p.id)}"`)} aria-pressed="${f === fa}"><b>${esc(nomeForno(f.p, true))}</b><small>${esc(f.p.codigo || '')}</small><span>+ ${brl(f.preco)}</span></button>`).join('')}</div>`
           : ehFogao(p) ? `<p class="note">${specDe(p, 'forno interno') || specDe(p, 'forno') ? 'Este fogão já vem com forno.' : 'Este modelo não leva forno avulso.'}</p>` : ''}
         <div class="pk-fim"><div class="qty"><button ${de('pk-qtd', ' data-d="-1"')} aria-label="Diminuir">−</button><b class="pk-q">${k.qtd || 1}</b><button ${de('pk-qtd', ' data-d="1"')} aria-label="Aumentar">+</button></div>
-          <button class="btn" ${de('pk-add')} ${at ? '' : 'disabled'}>${at ? `Adicionar ao orçamento · ${brl(tot)}` : 'Escolha a grelha'}</button></div>
+          <button class="btn" ${de('pk-add')} ${at && (onde !== 'ped' || at.preco > 0) ? '' : 'disabled'}>${!at ? 'Escolha a grelha' : onde === 'ped' && !(at.preco > 0) ? 'Sem preço na tabela' : `Adicionar ${onde === 'ped' ? 'ao pedido' : 'ao orçamento'} · ${brl(tot)}`}</button></div>
       </div></div></div>`;
   }
   const q = (k.busca || '').trim().toLowerCase(), cats = state.catalogo.categorias.filter(c => c.ativa !== false && ativos.some(p => p.cat === c.id));
@@ -79,7 +79,7 @@ function montador(d, onde) {
   const lista = modelos(filtrarFogao(base, k));
   return `<div class="mont" id="mont-${onde}"><div class="mont-top"><b>Adicionar produto</b>
       <input class="inp" type="search" placeholder="Buscar por nome ou código" data-pk="busca" data-onde="${onde}" value="${esc(k.busca)}" aria-label="Buscar produto">
-      <button class="btn ghost sm" ${de('pk-livre')}>Item avulso (escrever)</button></div>
+      ${onde === 'ped' ? '' : `<button class="btn ghost sm" ${de('pk-livre')}>Item avulso (escrever)</button>`}</div>
     ${q ? '' : `<div class="pk-cats">${cats.map(c => `<button class="chip${c.id === k.cat ? ' on' : ''}" ${de('pk-cat', ` data-id="${esc(c.id)}"`)}>${esc(c.nome)}</button>`).join('')}</div>`}
     ${chipsFogao(base, k, 'pk-ff', ` data-onde="${onde}"`)}
     <div class="pk-grid">${lista.slice(0, 60).map(g => { const p = g[0], mn = Math.min(...g.map(x => x.preco > 0 ? x.preco : Infinity)), fo = g.some(x => (x.fornos || []).length);
@@ -195,6 +195,13 @@ Object.assign(acts, {
   'pk-add': e => {
     const [d, k] = pk(e); if (!d) return; const p = prod(k.sel); if (!p) return;
     const q = k.qtd || 1, f = k.forno && prod(k.forno);
+    if (e.dataset.onde === 'ped') {                                   // pedido: itens com o código e a quantidade
+      if (!(p.preco > 0)) return;
+      d.itens = d.itens.filter(i => i.produto);
+      const por = x => { const ja = d.itens.find(i => i.produto === x.id); if (ja) ja.qtd = (+ja.qtd || 0) + q; else d.itens.push({ produto: x.id, qtd: q }); };
+      por(p); if (f) por(f); Object.assign(k, { modelo: '', sel: '', forno: '', qtd: 1 });
+      renderApp(); return toast(`${q} × ${rotulo(p)}${f ? ' + forno' : ''} no pedido.`);
+    }
     d.itens = d.itens.filter(i => i.produto_id || (i.descricao || '').trim());
     const por = (x) => { const ja = d.itens.find(i => i.produto_id === x.id); if (ja) ja.quantidade = (+ja.quantidade || 0) + q; else d.itens.push({ produto_id: x.id, descricao: rotulo(x), codigo: x.codigo || '', quantidade: q, preco_unit: x.preco || 0 }); };
     por(p); if (f) por(f);
