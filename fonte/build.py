@@ -21,10 +21,11 @@ o.CAT26.forEach(r=>{r[9]=0;}); o.PRECO_COLORS={};
 console.log('/* Catálogo JCN 2026: textos e fichas (sem preços) */\\n'+Object.keys(o).map(k=>'const '+k+' = '+JSON.stringify(o[k])+';').join('\\n'));
 """, S + '/catalogo.js'], text=True)
 js = "'use strict';\n" + '\n'.join([catalogo, ler('site.js').replace("'use strict';\n", '', 1).replace('__IMAGES__', json.dumps(mapa)), ler('supa.js'),
-     ler('app.js').replace("'use strict';\n", '', 1), ler('loja.js'), ler('vitrine.js'), ler('financeiro.js'), ler('galeria.js'), ler('crm.js'), ler('ficha.js'), ler('rh.js'), ler('telegram.js'), ler('orcamento.js'), ler('dados.js'), ler('init.js')])
+     ler('app.js').replace("'use strict';\n", '', 1), ler('loja.js'), ler('vitrine.js'), ler('financeiro.js'), ler('galeria.js'), ler('crm.js'), ler('ficha.js'), ler('rh.js'), ler('telegram.js'), ler('orcamento.js'), ler('orcamentos.js'), ler('dados.js'), ler('init.js')])
 js = '(function(){\n' + js + '\n})();\n'
 css = ler('style.css')
 v = hashlib.sha1((js + css).encode()).hexdigest()[:8]            # muda o nome a cada versão: o navegador não fica com arquivo velho
+shutil.copytree(R + '/vendor', D + '/vendor')            # gerador de PDF (jsPDF, licença MIT), carregado só quando alguém gera um orçamento
 open(f'{D}/app.{v}.js', 'w', encoding='utf-8').write(js); open(f'{D}/estilo.{v}.css', 'w', encoding='utf-8').write(css)
 open(f'{D}/config.js', 'w', encoding='utf-8').write(f"""// Endereço e chave PÚBLICA do projeto no Supabase. Esta chave pode ficar à vista: quem protege os dados são as regras do banco.
 // Nunca coloque aqui a chave secreta (sb_secret_...), a service_role nem a senha do banco.

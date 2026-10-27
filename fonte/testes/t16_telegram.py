@@ -55,7 +55,7 @@ try:
     ok(banco("select count(*) from tg_fila where chave like 'retorno:%' and enviado_em is null") == '0' and 'fechou com' in fila(-100111), 'nova ligação cancela o lembrete antigo; "fechou com" vai para Vendas'); limpar()
     # pedido com boleto
     ir(pg, 'catalogo'); pg.fill('#bv', 'FG4FSD-AZU'); pg.press('#bv', 'Enter'); W(); pg.click('.cards .card .btn'); W(); pg.click('[data-act=ficha-add]') if pg.locator('[data-act=ficha-add]').count() else None
-    ir(pg, 'novo-pedido'); pg.fill('[data-p="cliente.nome"]', 'Padaria Central'); pg.check('#fpBoleto'); W(); pg.check('#bd-30'); W(); pg.click('[data-act=lancar-pedido]'); parado(pg, 1200)
+    fechar_orc(pg, 'Padaria Central', forma='boleto', dias=(30,))
     f = fila(-100111); ok('Pedido nº' in f and 'Padaria Central' in f and 'Boleto para aprovar' in f and 'R$ 1.490,00' in f, 'pedido novo e boleto para aprovar no grupo:\n' + f); limpar(); sair(pg)
     entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026'); ir(pg, 'financeiro'); pg.click('#finBoletos [data-act=abrir-pedido]'); W(); pg.click('[data-act=boleto-ok]'); parado(pg, 900); pg.click('.drawer .x')
     ok('Pagamento confirmado' in fila(-100111) and 'foi confirmado' in fila(555), 'boleto aprovado: aviso no grupo e no Telegram da vendedora'); limpar()

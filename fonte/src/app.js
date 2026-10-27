@@ -50,11 +50,11 @@ function chipsFogao(lista, f, act, extra = '') {
     <button class="chip${!f[k] ? ' on' : ''}" data-act="${act}" data-k="${k}" data-v=""${extra}>Todos</button>${vals.map(v => `<button class="chip${+f[k] === v ? ' on' : ''}" data-act="${act}" data-k="${k}" data-v="${v}"${extra} ${conta(k, v) ? '' : 'disabled'}>${txt(v)}</button>`).join('')}</div>` : '';
   return `<div class="ff">${fila('bocas', 'Bocas', o.bocas, v => v + (v === 1 ? ' boca' : ' bocas'))}${fila('perfil', 'Perfil', o.perfil, v => 'P' + v)}</div>`;
 }
-const ONDE = { loja: ['Adicionar ao carrinho', 'no carrinho'], site: ['Adicionar à sacola', 'na sacola'], venda: ['Adicionar ao pedido', 'no pedido'] };
+const ONDE = { loja: ['Adicionar ao carrinho', 'no carrinho'], site: ['Adicionar à sacola', 'na sacola'], venda: ['Adicionar ao orçamento', 'no orçamento'] };
 const NAV = {
-  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['rh', 'Currículos (RH)'], ['rh-agenda', 'Reuniões do RH'], ['avisos', 'Avisos no Telegram'], ['usuarios', 'Usuários']],
-  vendedor: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Pedidos'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['lojas', 'Contas e-commerce'], ['galeria', 'Galeria de fotos']],
-  representante: [['catalogo', 'Catálogo e preços'], ['novo-pedido', 'Lançar pedido'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']],
+  admin: [['produtos', 'Produtos'], ['categorias', 'Categorias'], ['conteudo', 'Site e galeria'], ['catalogo', 'Tabela de preços'], ['lojas', 'Contas e-commerce'], ['orcamentos', 'Orçamentos'], ['pedidos', 'Pedidos'], ['financeiro', 'Financeiro'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['rel-lig', 'Relatório de ligações'], ['galeria', 'Galeria de fotos'], ['rh', 'Currículos (RH)'], ['rh-agenda', 'Reuniões do RH'], ['avisos', 'Avisos no Telegram'], ['usuarios', 'Usuários']],
+  vendedor: [['catalogo', 'Catálogo e preços'], ['orcamentos', 'Orçamentos'], ['pedidos', 'Pedidos'], ['ligacoes', 'Ligações'], ['clientes', 'Possíveis clientes'], ['lojas', 'Contas e-commerce'], ['galeria', 'Galeria de fotos']],
+  representante: [['catalogo', 'Catálogo e preços'], ['orcamentos', 'Orçamentos'], ['pedidos', 'Meus pedidos'], ['galeria', 'Galeria de fotos']],
   financeiro: [['financeiro', 'Financeiro'], ['pedidos', 'Pedidos']],
   rh_admin: [['rh', 'Currículos'], ['rh-agenda', 'Reuniões'], ['rh-equipe', 'Equipe do RH']],
   rh_assistente: [['rh', 'Currículos'], ['rh-agenda', 'Reuniões']],
@@ -103,14 +103,14 @@ function voltarSite() {
 }
 function entrarComo(u) {
   sessao = u.id;
-  ui.erro = ''; ui.galBusca = ''; ui.galCat = ''; ui.view = NAV[u.papel][0][0]; ui.pedido = null; ui.carrinho = null; ui.checkout = null; ui.acesso = null; renderApp(); scrollTo(0, 0);
+  ui.erro = ''; ui.galBusca = ''; ui.galCat = ''; ui.view = NAV[u.papel][0][0]; ui.pedido = null; ui.orcEd = null; ui.orcLista = null; ui.carrinho = null; ui.checkout = null; ui.acesso = null; renderApp(); scrollTo(0, 0);
 }
 
 function renderApp() {
   const u = eu(), app = $('#app');
   if (!u) { app.innerHTML = vLogin(); $('.login-art').style.backgroundImage = `url(${IMG.cover})`; return; }
   const nav = NAV[u.papel] || NAV.vendedor; if (!nav.find(n => n[0] === ui.view)) ui.view = nav[0][0];
-  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, rh: vRH, 'rh-agenda': vAgendaRH, 'rh-equipe': vEquipeRH, avisos: vAvisos, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
+  const views = { produtos: vProdutos, categorias: vCategorias, conteudo: vConteudo, catalogo: vCatalogo, lojas: vLojas, loja: vLoja, carrinho: vCarrinho, 'novo-pedido': vNovoPedido, orcamentos: vOrcamentos, pedidos: vPedidos, financeiro: vFinanceiro, usuarios: vUsuarios, galeria: vGaleria, rh: vRH, 'rh-agenda': vAgendaRH, 'rh-equipe': vEquipeRH, avisos: vAvisos, ligacoes: vLigacoes, clientes: vClientes, 'rel-lig': vRelLig };
   const selo = id => { const n = id === 'carrinho' ? qtdCarrinho() : (id === 'pedidos' || id === 'financeiro') && ehFin(u) ?  state.pedidos.filter(p => id === 'financeiro' ? ehBoleto(p) && paraConferir(p) : paraConferir(p)).length : 0; return n ? `<span class="badge" aria-label="${n} ${id === 'carrinho' ? 'no carrinho' : id === 'financeiro' ? 'boletos para aprovar' : 'com pagamento para conferir'}">${n}</span>` : ''; };
   app.innerHTML = `<div class="shell">
     <aside class="side">
@@ -290,7 +290,7 @@ function vCatalogo(u) {
     <span class="price${com.length ? '' : ' nd'}">${varias && com.length ? 'A partir de ' + brl(Math.min(...com)) : precoTxt(com[0] || 0)}</span>
     ${fo ? '<span class="chip">Forno opcional</span>' : ''}
     ${varias || fo ? `<button class="btn sm" data-act="ficha" data-ids="${esc(ids)}" data-ctx="venda">${rotuloOpcoes(varias, fo)}</button>`
-             : `<button class="btn ghost sm" data-act="add-ao-pedido" data-id="${esc(p.id)}" ${p.preco > 0 ? '' : 'disabled'}>${p.preco > 0 ? 'Adicionar ao pedido' : 'Sem preço na tabela'}</button>`}</div>`; }).join('')}</div>`
+             : `<button class="btn ghost sm" data-act="add-ao-pedido" data-id="${esc(p.id)}" ${p.preco > 0 ? '' : 'disabled'}>${p.preco > 0 ? 'Adicionar ao orçamento' : 'Sem preço na tabela'}</button>`}</div>`; }).join('')}</div>`
   : `<div class="empty">Nenhum produto com este filtro.</div>`}`;
 }
 /* Ficha do produto: aparece ao abrir um cartão. Se o fogão tem as duas grelhas, é aqui que se escolhe. */
@@ -499,9 +499,12 @@ async function baixarArquivo(id) {
 }
 
 /* ---------- ações ---------- */
-function porNoPedido(id, q) {
-  const d = ui.pedido || (ui.pedido = novoPedidoVazio()), vazio = d.itens.find(i => !i.produto), ja = d.itens.find(i => i.produto === id);
-  if (ja) ja.qtd = Math.min(999, (+ja.qtd || 0) + q); else if (vazio) { vazio.produto = id; vazio.qtd = q; } else d.itens.push({ produto: id, qtd: q });
+function porNoPedido(id, q) {                                         // "Adicionar ao orçamento" do catálogo: entra no orçamento que está sendo montado
+  const p = prod(id); if (!p) return;
+  const d = ui.orcEd && !ui.orcEd.pedido_id ? ui.orcEd : (ui.orcEd = novoOrcEd());
+  d.itens = d.itens.filter(i => i.produto_id || (i.descricao || '').trim());
+  const ja = d.itens.find(i => i.produto_id === id);
+  if (ja) ja.quantidade = Math.min(9999, (+ja.quantidade || 0) + q); else d.itens.push({ produto_id: p.id, descricao: rotulo(p), codigo: p.codigo || '', quantidade: q, preco_unit: p.preco || 0 });
 }
 const pedidoAberto = () => ui.drawer && state.pedidos.find(p => p.id === ui.drawer.id);
 const acts = {
@@ -591,7 +594,7 @@ const acts = {
   // catálogo e pedido
   'add-ao-pedido': e => {
     if (!(prod(e.dataset.id).preco > 0)) return toast('Este produto ainda não tem preço na tabela.');
-    porNoPedido(e.dataset.id, 1); toast(prod(e.dataset.id).nome + ' adicionado ao pedido.');
+    porNoPedido(e.dataset.id, 1); renderApp(); toast(prod(e.dataset.id).nome + ' no orçamento. Abra Orçamentos para continuar.');
   },
   // ficha do produto e escolha da grelha
   'ficha': e => { ui.drawer = { tipo: 'ficha', ids: e.dataset.ids.split(','), ctx: e.dataset.ctx, pub: e.dataset.ctx === 'site', sel: null, forno: '', qtd: 1 }; renderDrawer(); },

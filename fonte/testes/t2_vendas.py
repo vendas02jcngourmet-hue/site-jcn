@@ -15,12 +15,11 @@ try:
     # ---------- 1. vendedora
     entrar(pg, 'ecommerce', 'marina@jcn.test', 'Marina#2026'); ok('Equipe JCN' in pg.inner_text('.err'), 'vendedora na aba E-commerce é mandada para a aba certa: ' + pg.inner_text('.err'))
     entrar(pg, 'vendas', 'marina@jcn.test', 'Marina#2026')
-    ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Pedidos', 'Ligações', 'Possíveis clientes', 'Contas e-commerce', 'Galeria de fotos'], 'menu da vendedora: ' + ' | '.join(nav(pg)))
+    ok(nav(pg) == ['Catálogo e preços', 'Orçamentos', 'Pedidos', 'Ligações', 'Possíveis clientes', 'Contas e-commerce', 'Galeria de fotos'], 'menu da vendedora: ' + ' | '.join(nav(pg)))
     pg.fill('#bv', 'FF011'); pg.press('#bv', 'Enter'); W(); c = pg.inner_text('.cards .card').replace('\n', ' | ')
     ok('R$' in c, 'vendedora vê a tabela de preços: ' + c[:110])
     pg.click('.cards .card .btn'); W(); pg.check('#fx-' + pid('FF996')); pg.check('#ff-' + pid('FF163TV')); W(); soma = pg.inner_text('.soma'); pg.click('[data-act=ficha-add]'); W()
-    ir(pg, 'novo-pedido'); pg.fill('[data-p="cliente.nome"]', 'Cantina do Vale'); pg.fill('[data-p="cliente.cidade"]', 'Catanduva, SP')
-    pg.set_input_files('[data-file=comp-novo]', FX + 'comprovante.png'); W(700); pg.screenshot(path=R + '/testes/shots/t2_novo.png'); pg.click('[data-act=lancar-pedido]'); parado(pg, 900)
+    fechar_orc(pg, 'Cantina do Vale', 'Catanduva, SP', comprovante=FX + 'comprovante.png')
     lin = pg.inner_text('.tbl tbody').replace('\n', ' | '); ok(pg.locator('.tbl tbody tr').count() == 1 and 'Cantina do Vale' in lin and '1041' in lin, 'pedido lançado, número dado pelo banco: ' + lin[:120])
     b = banco("select p.numero || '|' || p.origem || '|' || p.pix_status || '|' || v.email || '|' || (select string_agg(i.codigo || ' ' || i.preco_unit, ', ' order by i.codigo) from itens_pedido i where i.pedido_id = p.id) from pedidos p join perfis v on v.id = p.vendedor_id")
     ok(b == '1041|interno|em_analise|marina@jcn.test|FF163TV 444.54, FF996 583.86', 'no banco: itens com o preço da tabela, comprovante em análise: ' + b)
@@ -30,8 +29,8 @@ try:
     ok(pg.locator('[data-act=pix-ok],[data-act=envio]').count() == 0, 'vendedora não confere PIX nem mexe na expedição'); pg.click('.drawer .x')
     # boleto 30/60
     ir(pg, 'catalogo'); pg.fill('#bv', 'FG4FSD-PRE'); pg.press('#bv', 'Enter'); W(); pg.click('.cards .card .btn'); W(); pg.click('[data-act=ficha-add]') if pg.locator('[data-act=ficha-add]').count() else None; W()
-    ir(pg, 'novo-pedido'); pg.fill('[data-p="cliente.nome"]', 'Padaria Central'); pg.check('#fpBoleto'); W(); pg.check('#bd-30'); pg.check('#bd-60'); W(); pg.click('[data-act=lancar-pedido]'); parado(pg, 700)
-    ok('financeiro' in toast(pg) and banco("select forma_pagamento || '|' || boleto_status || '|' || boleto_dias::text from pedidos where cliente_nome = 'Padaria Central'") == 'boleto|pendente|{30,60}', 'boleto 30/60 lançado e pendente de aprovação: ' + toast(pg)[:60])
+    msg = fechar_orc(pg, 'Padaria Central', forma='boleto', dias=(30, 60))
+    ok('financeiro' in msg and banco("select forma_pagamento || '|' || boleto_status || '|' || boleto_dias::text from pedidos where cliente_nome = 'Padaria Central'") == 'boleto|pendente|{30,60}', 'boleto 30/60 lançado e pendente de aprovação: ' + msg[:60])
     # conta de e-commerce da vendedora
     ir(pg, 'lojas'); pg.click('[data-act=nova-conta]'); W(); ok(pg.locator('#ctVend').count() == 0 and 'Marina Tavares' in pg.inner_text('#ctVendFixo'), 'a conta nasce no nome da vendedora')
     pg.fill('#ctNome', 'Loja da Marina'); pg.fill('#ctLogin', 'lojamarina'); pg.fill('#ctSenha', 'curta'); pg.click('[data-act=salvar-conta]'); W()
@@ -40,10 +39,10 @@ try:
     ok('lojamarina' in pg.inner_text('.acesso') and banco("select count(*) from catalogo_loja c join perfis l on l.id = c.loja_id and l.login = 'lojamarina' join perfis v on v.id = l.vendedor_id and v.email = 'marina@jcn.test'") == '11', 'vendedora cria a loja dela com 11 produtos liberados')
     sair(pg)
     # ---------- 2. representante
-    entrar(pg, 'vendas', 'paulo@jcn.test', 'Paulo#2026'); ok(nav(pg) == ['Catálogo e preços', 'Lançar pedido', 'Meus pedidos', 'Galeria de fotos'], 'menu do representante: ' + ' | '.join(nav(pg)))
+    entrar(pg, 'vendas', 'paulo@jcn.test', 'Paulo#2026'); ok(nav(pg) == ['Catálogo e preços', 'Orçamentos', 'Meus pedidos', 'Galeria de fotos'], 'menu do representante: ' + ' | '.join(nav(pg)))
     ir(pg, 'pedidos'); ok(pg.locator('.tbl tbody tr').count() == 0, 'representante não vê os pedidos da vendedora')
     ir(pg, 'catalogo'); pg.fill('#bv', 'FG4FSD-VER'); pg.press('#bv', 'Enter'); W(); pg.click('.cards .card .btn'); W(); pg.click('[data-act=ficha-add]') if pg.locator('[data-act=ficha-add]').count() else None; W()
-    ir(pg, 'novo-pedido'); pg.fill('[data-p="cliente.nome"]', 'Bar do Zé'); pg.click('[data-act=lancar-pedido]'); parado(pg, 700)
+    fechar_orc(pg, 'Bar do Zé')
     ok(pg.locator('.tbl tbody tr').count() == 1 and banco("select pix_status from pedidos where cliente_nome = 'Bar do Zé'") == 'sem_comprovante', 'representante lança pedido sem comprovante')
     pg.click('[data-act=abrir-pedido]'); W(); pg.set_input_files('[data-file=comp-pedido]', FX + 'comprovante.png'); parado(pg, 900)
     ok(banco("select pix_status from pedidos where cliente_nome = 'Bar do Zé'") == 'em_analise' and 'em análise' in pg.inner_text('.drawer') and pg.locator('.drawer [data-file]').count() == 0, 'depois envia o comprovante: pedido em análise e travado para ele')

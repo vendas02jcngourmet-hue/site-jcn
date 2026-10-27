@@ -12,7 +12,7 @@ try:
     br = p.chromium.launch(); pg, errs = pagina(br); W = lambda ms=250: pg.wait_for_timeout(ms)
     pg.goto(B); W(1500); entrar(pg, 'vendas', 'marina@jcn.test', 'Marina#2026')
     pg.fill('#bv', 'FG4FSD-AZU'); pg.press('#bv', 'Enter'); W(); pg.click('.cards .card .btn'); W(); pg.click('[data-act=ficha-add]') if pg.locator('[data-act=ficha-add]').count() else None
-    ir(pg, 'novo-pedido'); pg.fill('[data-p="cliente.nome"]', 'Cliente Rápido'); pg.set_input_files('[data-file=comp-novo]', FX + 'comprovante.png'); W(600); pg.click('[data-act=lancar-pedido]'); parado(pg, 900)
+    fechar_orc(pg, 'Cliente Rápido', comprovante=FX + 'comprovante.png')
     ok(banco("select count(*) || '|' || max(pix_status) from pedidos") == '1|em_analise', 'pedido lançado numa chamada só, com comprovante')
     # vendedora anexa e retira uma etiqueta
     pg.click('[data-act=abrir-pedido]'); W(); pg.set_input_files('[data-file=etq-pedido]', FX + 'etiqueta-1.pdf'); parado(pg, 900); ok(banco("select count(*) from anexos where tipo = 'etiqueta_envio'") == '1', 'vendedora anexa a etiqueta')

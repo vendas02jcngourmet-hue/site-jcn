@@ -18,12 +18,12 @@ try:
     pg.reload(); W(2500); ok(pg.locator('.side nav').count() == 1 and 'Marina Tavares' in pg.inner_text('.who') and 'Pedidos' in pg.inner_text('.main h1'), 'depois de recarregar a página a vendedora continua dentro, na mesma tela')
     ok('Marina#2026' not in pg.evaluate("JSON.stringify(localStorage) + JSON.stringify(sessionStorage)"), 'a senha não fica guardada no navegador')
     W(6000); ir(pg, 'catalogo'); pg.fill('#bv', 'FG4FSD-AZU'); pg.press('#bv', 'Enter'); W(); pg.click('.cards .card .btn'); W(); pg.click('[data-act=ficha-add]') if pg.locator('[data-act=ficha-add]').count() else None
-    ir(pg, 'novo-pedido'); pg.fill('[data-p="cliente.nome"]', 'Depois de renovar'); pg.click('[data-act=lancar-pedido]'); parado(pg, 800)
+    fechar_orc(pg, 'Depois de renovar')
     ok(banco("select count(*) from pedidos where cliente_nome = 'Depois de renovar'") == '1', 'com o bilhete vencido, o site renova sozinho e o pedido é gravado')
     # ---------- atualização entre aparelhos
     adm, e2 = pagina(br); rapido(adm); adm.goto(B); adm.wait_for_timeout(1200); entrar(adm, 'vendas', 'admin@jcn.test', 'Admin#2026'); ir(adm, 'pedidos'); n0 = adm.locator('.tbl tbody tr').count()
     ir(pg, 'catalogo'); pg.fill('#bv', 'FG4FSD-PRE'); pg.press('#bv', 'Enter'); W(); pg.click('.cards .card .btn'); W(); pg.click('[data-act=ficha-add]') if pg.locator('[data-act=ficha-add]').count() else None
-    ir(pg, 'novo-pedido'); pg.fill('[data-p="cliente.nome"]', 'Pedido novo'); pg.set_input_files('[data-file=comp-novo]', FX + 'comprovante.png'); W(600); pg.click('[data-act=lancar-pedido]'); parado(pg, 800)
+    fechar_orc(pg, 'Pedido novo', comprovante=FX + 'comprovante.png')
     adm.wait_for_timeout(4500); ok(n0 == 1 and adm.locator('.tbl tbody tr').count() == 2 and 'Pedido novo' in adm.inner_text('.tbl tbody'), 'o pedido lançado em um aparelho aparece no outro sem recarregar a página')
     adm.click('tr:has-text("Pedido novo") [data-act=abrir-pedido]'); adm.wait_for_timeout(300); adm.click('[data-act=pix-ok]'); parado(adm); pg.wait_for_timeout(4500)
     ok('verificado' in pg.inner_text('tr:has-text("Pedido novo")').lower(), 'e a vendedora vê o PIX conferido pela administração: ' + pg.inner_text('tr:has-text("Pedido novo")').replace('\t', ' | ')[:120])

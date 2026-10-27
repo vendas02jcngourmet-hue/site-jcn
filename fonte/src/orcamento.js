@@ -2,21 +2,21 @@
    O vendedor monta o orçamento na hora da ligação (ou depois, pela ficha da loja), com os itens e o preço
    combinado. Dentro do orçamento, a aba "Por que não foi concluído" guarda o motivo e o que aconteceu.
    O orçamento fica na base da loja e entra no relatório de ligações. */
-const SIT_ORC = { aberto: ['Em aberto', 'info'], concluido: ['Concluído', 'ok'], nao_concluido: ['Não concluído', 'bad'] };
+const SIT_ORC = { aberto: ['Em aberto', 'info'], concluido: ['Fechado', 'ok'], nao_concluido: ['Não fechado', 'bad'] };
 const MOTIVOS = { preco: 'Preço alto', frete: 'Frete caro', prazo: 'Prazo de entrega', pagamento: 'Forma de pagamento', concorrente: 'Comprou de outro fornecedor',
   sem_estoque: 'Faltou o produto', desistiu: 'Desistiu da compra', sem_resposta: 'Não respondeu mais', outro: 'Outro motivo' };
 const orcs = () => crm().orcamentos || [];
 const orcDe = id => orcs().find(o => o.id === id);
 const orcsDe = pid => orcs().filter(o => o.prospect_id === pid);
 const totalOrc = o => (o.itens || []).reduce((s, i) => s + (Number(i.quantidade) || 0) * (Number(i.preco_unit) || 0), 0);
-const podeOrc = (o, u) => u && (u.papel === 'admin' || (u.papel === 'vendedor' && (!o.id || o.vendedor_id === u.id)));
+const podeOrc = (o, u) => u && (u.papel === 'admin' || (['vendedor', 'representante'].includes(u.papel) && (!o.id || o.vendedor_id === u.id)));
 const itemVazio = () => ({ produto_id: '', descricao: '', codigo: '', quantidade: 1, preco_unit: 0 });
 const novoOrc = pid => ({ id: '', prospect_id: pid || '', situacao: 'aberto', validade: somaDias(hojeISO(), 7), obs: '', motivo: '', motivo_detalhe: '', itens: [], aba: 'itens' });
 const rascunhoOrc = o => ({ id: o.id, numero: o.numero, prospect_id: o.prospect_id, ligacao_id: o.ligacao_id, vendedor_id: o.vendedor_id, criado_em: o.criado_em, situacao: o.situacao, validade: o.validade || '', obs: o.obs || '',
   motivo: o.motivo || '', motivo_detalhe: o.motivo_detalhe || '', itens: o.itens.length ? o.itens.map(i => ({ produto_id: i.produto_id || '', descricao: i.descricao, codigo: i.codigo || '', quantidade: i.quantidade, preco_unit: i.preco_unit, livre: !i.produto_id })) : [], aba: o.situacao === 'nao_concluido' ? 'motivo' : 'itens' });
 const chipOrc = k => chip(SIT_ORC[k] || [k, '']);
-const orcDraft = onde => onde === 'ped' ? ui.pedido : onde === 'lig' ? ui.lig && ui.lig.orc : ui.drawer && ui.drawer.tipo === 'orcamento' ? ui.drawer.draft : null;
-const redesenharOrc = onde => onde === 'lig' || onde === 'ped' ? renderApp() : renderDrawer();
+const orcDraft = onde => onde === 'oe' ? ui.orcEd : onde === 'ped' ? ui.pedido : onde === 'lig' ? ui.lig && ui.lig.orc : ui.drawer && ui.drawer.tipo === 'orcamento' ? ui.drawer.draft : null;
+const redesenharOrc = onde => onde === 'lig' || onde === 'ped' || onde === 'oe' ? renderApp() : renderDrawer();
 const resumoItens = o => (o.itens || []).map(i => `${i.quantidade}× ${i.descricao}`).join(', ');
 function avisoOrc() {
   return crm().orcIndisponivel ? `<p class="note" style="margin:8px 0 0"><b>Falta um passo no banco para os orçamentos:</b> rode o arquivo <b>atualizacao-3.sql</b> no Supabase (SQL Editor, colar tudo, Run).</p>` : '';
@@ -38,16 +38,16 @@ function orcEditor(d, onde, so) {
   const sit = d.situacao || 'aberto';
   return `<div class="tabs orc-abas" role="tablist">
       <button role="tab" aria-selected="${aba === 'itens'}" data-act="orc-aba" data-aba="itens" data-onde="${onde}">Itens do orçamento</button>
-      <button role="tab" aria-selected="${aba === 'motivo'}" data-act="orc-aba" data-aba="motivo" data-onde="${onde}">Por que não foi concluído${d.situacao === 'nao_concluido' ? ' •' : ''}</button></div>
+      <button role="tab" aria-selected="${aba === 'motivo'}" data-act="orc-aba" data-aba="motivo" data-onde="${onde}">Por que não fechou${d.situacao === 'nao_concluido' ? ' •' : ''}</button></div>
     ${aba === 'itens' ? `${itensV.length ? `<div class="orc-itens">${linhas}</div>` : `<p class="note" style="margin:0 0 8px">Nenhum item ainda. Escolha os produtos abaixo.</p>`}
       ${so ? '' : montador(d, onde)}
       <p class="orc-total">Total <b id="${id('orcTotal')}">${brl(totalOrc(d))}</b></p>
       <div class="grid2"><label class="field"><span>Válido até</span><input type="date" data-oe="validade" data-onde="${onde}" value="${esc(d.validade)}" ${dis}></label>
-        <label class="field"><span>Situação</span><select data-oe="situacao" data-onde="${onde}" ${dis}>${Object.entries(SIT_ORC).map(([k, [t]]) => `<option value="${k}" ${k === sit ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
-      <label class="field" style="margin-top:10px"><span>Observações do orçamento (frete, pagamento, prazo)</span><textarea rows="2" data-oe="obs" data-onde="${onde}" ${dis}>${esc(d.obs)}</textarea></label>`
+        <label class="field"><span>Situação</span><select data-oe="situacao" data-onde="${onde}" ${dis}>${Object.entries(SIT_ORC).filter(([k]) => k !== 'concluido' || sit === 'concluido').map(([k, [t]]) => `<option value="${k}" ${k === sit ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
+      <label class="field" style="margin-top:10px"><span>Observações do orçamento</span><textarea rows="2" data-oe="obs" data-onde="${onde}" ${dis}>${esc(d.obs)}</textarea></label>`
     : `<p class="note" style="margin:0 0 10px">Se a loja não fechou, escolha o motivo e escreva o que aconteceu. O orçamento passa a contar como <b>não concluído</b> no relatório.</p>
       <label class="field"><span>Motivo</span><select data-oe="motivo" data-onde="${onde}" ${dis}><option value="">Ainda não sei / foi concluído</option>${Object.entries(MOTIVOS).map(([k, t]) => `<option value="${k}" ${k === d.motivo ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-      <label class="field" style="margin-top:10px"><span>Por que não foi concluído</span><textarea rows="5" data-oe="motivo_detalhe" data-onde="${onde}" placeholder="Ex.: achou o frete caro para Rio Preto; o concorrente fez R$ 200 a menos no FF011; pediu para ver de novo no mês que vem." ${dis}>${esc(d.motivo_detalhe)}</textarea></label>
+      <label class="field" style="margin-top:10px"><span>Por que não fechou</span><textarea rows="5" data-oe="motivo_detalhe" data-onde="${onde}" placeholder="Ex.: achou o frete caro para Rio Preto; o concorrente fez R$ 200 a menos no FF011; pediu para ver de novo no mês que vem." ${dis}>${esc(d.motivo_detalhe)}</textarea></label>
       <p class="note" style="margin:8px 0 0">Situação agora: ${chipOrc(sit)}</p>`}`;
 }
 /* montador do orçamento: escolhe o produto com cliques, depois a grelha (obrigatória) e o forno (opcional) */
@@ -92,7 +92,7 @@ function problemaOrc(d) {
   if (!itens.length) return 'Coloque pelo menos um item no orçamento.';
   if (itens.some(i => !(+i.quantidade >= 1))) return 'Informe a quantidade de cada item.';
   if (itens.some(i => !(+i.preco_unit >= 0))) return 'Confira o preço dos itens.';
-  if (d.situacao === 'nao_concluido' && !d.motivo) return 'Na aba "Por que não foi concluído", escolha o motivo.';
+  if (d.situacao === 'nao_concluido' && !d.motivo) return 'Na aba "Por que não fechou", escolha o motivo.';
   return '';
 }
 const corpoOrc = d => ({ id: d.id || '', prospect_id: d.prospect_id, ligacao_id: d.ligacao_id || '', situacao: d.situacao, validade: d.validade || '', obs: d.obs, motivo: d.situacao === 'nao_concluido' ? d.motivo : '', motivo_detalhe: d.situacao === 'nao_concluido' ? d.motivo_detalhe : '',
@@ -110,6 +110,7 @@ function dOrcamento(dr, u) {
   <p class="err" role="alert" ${dr.erro ? '' : 'hidden'}>${esc(dr.erro || '')}</p>
   <div class="foot">${so ? '' : `<button class="btn" data-act="orc-salvar">${d.id ? 'Salvar orçamento' : 'Criar orçamento'}</button>`}
     ${d.id ? `<a class="btn ghost" href="https://wa.me/55${esc(p.telefone)}?text=${encodeURIComponent(textoOrc(d, p))}" target="_blank" rel="noopener">Enviar pelo WhatsApp</a>` : ''}
+    ${d.id ? `<button class="btn ghost" data-act="oe-abrir" data-id="${esc(d.id)}">Abrir completo (PDF e fechar)</button>` : ''}
     <button class="btn ghost" data-act="fechar">Fechar</button>
     ${adm && d.id ? `<button class="btn danger" data-act="orc-apagar" data-confirm="Confirmar: apagar orçamento">Apagar</button>` : ''}</div>`;
 }
@@ -129,13 +130,13 @@ function tabelaOrcs(lista, mostraLoja) {
 }
 function painelOrcs(u) {
   if (crm().indisponivel) return '';
-  const f = ui.orcF || 'aberto', adm = u.papel === 'admin', base = orcs().filter(o => adm || ui.orcTodos || o.vendedor_id === u.id);
+  const f = ui.orcF || 'aberto', adm = u.papel === 'admin', base = orcs().filter(o => adm || o.vendedor_id === u.id);
   const lista = base.filter(o => f === 'todos' || o.situacao === f).slice(0, 60);
   const n = k => base.filter(o => o.situacao === k).length;
   return `<div class="panel" id="painelOrc"><div class="galtop" style="margin:0 0 10px"><h2 style="margin:0">${adm ? 'Orçamentos da equipe' : 'Meus orçamentos'}</h2>
-      ${adm ? '' : `<label class="check"><input type="checkbox" data-chg="orc-todos" ${ui.orcTodos ? 'checked' : ''}> Ver os da equipe</label>`}</div>
+      <button class="btn ghost sm" data-act="nav" data-view="orcamentos">Ver todos e gerar PDF</button></div>
     ${avisoOrc()}
-    <div class="bar" role="group" aria-label="Situação dos orçamentos">${[['aberto', 'Em aberto'], ['nao_concluido', 'Não concluídos'], ['concluido', 'Concluídos'], ['todos', 'Todos']].map(([k, t]) =>
+    <div class="bar" role="group" aria-label="Situação dos orçamentos">${[['aberto', 'Em aberto'], ['nao_concluido', 'Não fechados'], ['concluido', 'Fechados'], ['todos', 'Todos']].map(([k, t]) =>
       `<button class="btn sm ${f === k ? '' : 'ghost'}" data-act="orc-f" data-f="${k}">${t} (${k === 'todos' ? base.length : n(k)})</button>`).join('')}</div>
     ${lista.length ? tabelaOrcs(lista, true) : `<p class="note" style="margin:0">${base.length ? 'Nenhum orçamento nesta situação.' : 'Nenhum orçamento ainda. Use "Adicionar orçamento" ao registrar uma ligação.'}</p>`}</div>`;
 }
@@ -149,9 +150,9 @@ function relOrcs(de, ate, r) {
   const nc = ls.filter(o => o.situacao === 'nao_concluido'), mot = Object.keys(MOTIVOS).map(k => [k, nc.filter(o => o.motivo === k)]).filter(x => x[1].length).sort((a, b) => b[1].length - a[1].length);
   const tile = (rot, v, sub) => `<div class="tile"><span class="t-rot">${rot}</span><b class="t-val">${v}</b><span class="t-sub">${sub}</span></div>`;
   return `<div class="panel" id="relOrc"><h2>Orçamentos</h2>
-    <div class="tiles">${tile('Orçamentos', ls.length, brl(soma()) + ' no total')}${tile('Concluídos', conta('concluido'), brl(soma('concluido')))}
-      ${tile('Não concluídos', conta('nao_concluido'), brl(soma('nao_concluido')))}${tile('Em aberto', conta('aberto'), brl(soma('aberto')))}</div>
-    ${mot.length ? `<h3>Por que não foram concluídos</h3><div class="tbl-wrap"><table class="tbl" id="relMotivos"><thead><tr><th>Motivo</th><th class="num">Orçamentos</th><th class="num">Valor</th><th>O que foi escrito</th></tr></thead><tbody>
+    <div class="tiles">${tile('Orçamentos', ls.length, brl(soma()) + ' no total')}${tile('Fechados', conta('concluido'), brl(soma('concluido')))}
+      ${tile('Não fechados', conta('nao_concluido'), brl(soma('nao_concluido')))}${tile('Em aberto', conta('aberto'), brl(soma('aberto')))}</div>
+    ${mot.length ? `<h3>Por que não fecharam</h3><div class="tbl-wrap"><table class="tbl" id="relMotivos"><thead><tr><th>Motivo</th><th class="num">Orçamentos</th><th class="num">Valor</th><th>O que foi escrito</th></tr></thead><tbody>
       ${mot.map(([k, os]) => `<tr><td><b>${esc(MOTIVOS[k])}</b></td><td class="num">${os.length}</td><td class="num">${brl(os.reduce((s, o) => s + totalOrc(o), 0))}</td>
         <td class="trat">${os.filter(o => o.motivo_detalhe).slice(0, 3).map(o => `<button class="linkbtn" data-act="abrir-orc" data-id="${esc(o.id)}">nº ${esc(o.numero)}</button> ${esc(o.motivo_detalhe)}`).join('<br>')}</td></tr>`).join('')}</tbody></table></div>` : ''}
     <h3>Orçamentos do período</h3>${tabelaOrcs(ls.slice(0, 200), true)}

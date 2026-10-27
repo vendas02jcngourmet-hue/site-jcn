@@ -50,3 +50,17 @@ def parado(pg, ms=450):
 
 NAO_RESTO = """(() => { const e = document.querySelector('.tc-etapa:not([hidden])'); e.querySelectorAll('.fc-sn').forEach(g => { if (!g.closest('[hidden]') && !g.querySelector('input:checked')) { const r = g.querySelector('input[value=nao]'); r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); } }); })()"""
 def nao_no_resto(pg): pg.evaluate(NAO_RESTO); pg.wait_for_timeout(100)
+
+def fechar_orc(pg, cliente, cidade='', forma='pix', dias=(), comprovante=None):
+    """o que antes era "Lançar pedido": monta o orçamento (com os itens já escolhidos no catálogo) e fecha; o pedido vai para o faturamento"""
+    ir(pg, 'orcamentos'); pg.fill('[data-oc=nome]', cliente)
+    if cidade: pg.fill('[data-oc=cidade]', cidade)
+    pg.click('[data-act=oe-salvar]'); parado(pg, 900); pg.click('[data-act=oe-fechar]'); pg.wait_for_timeout(250)
+    if forma == 'boleto':
+        pg.check('input[name=fcforma][value=boleto]'); pg.wait_for_timeout(200)
+        for d in dias: pg.check(f'[data-act=fc-dia][data-d="{d}"]'); pg.wait_for_timeout(150)
+    pg.click('[data-act=oe-fechar-ok]'); parado(pg, 1200)
+    msg = toast(pg); ir(pg, 'pedidos')
+    if comprovante:
+        pg.click(f'tr:has-text("{cliente}") [data-act=abrir-pedido]'); pg.wait_for_timeout(300); pg.set_input_files('[data-file=comp-pedido]', comprovante); parado(pg, 900); pg.click('.drawer .x'); pg.wait_for_timeout(200)
+    return msg

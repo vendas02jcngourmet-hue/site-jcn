@@ -132,6 +132,7 @@ async function carregarRH() {
 }
 // registro de ligações e possíveis clientes (administração e vendedores)
 async function carregarCRM() {
+  if (papelAtual() === 'representante') { state.crm = { prospects: [], ligacoes: [], orcamentos: [] }; return carregarOrcs(); }     // representante: só os orçamentos dele
   if (!['admin', 'vendedor'].includes(papelAtual())) { state.crm = { prospects: [], ligacoes: [] }; return; }
   try {
     const [pr, lg, eq] = await Promise.all([selTudo('prospects', 'select=*&order=atualizado_em.desc,id.asc'), selTudo('ligacoes', 'select=*&order=feita_em.desc,id.asc'), SB.rpc('nomes_da_equipe').catch(() => [])]);
@@ -141,7 +142,10 @@ async function carregarCRM() {
     state.crm = { prospects: [], ligacoes: [], orcamentos: [], indisponivel: /PGRST205|42P01|does not exist|schema cache/i.test((e.code || '') + ' ' + e.message) };
     return;
   }
-  // orçamentos (atualização 3): se ainda não rodou, o resto das ligações continua funcionando
+  await carregarOrcs();
+}
+// orçamentos (atualização 3): se ainda não rodou, o resto das ligações continua funcionando
+async function carregarOrcs() {
   try {
     const [orc, itens] = await Promise.all([selTudo('orcamentos', 'select=*&order=criado_em.desc,id.asc'), selTudo('orcamento_itens', 'select=*&order=orcamento_id.asc,ordem.asc')]);
     const de = {}; itens.forEach(i => (de[i.orcamento_id] = de[i.orcamento_id] || []).push({ ...i, quantidade: Number(i.quantidade), preco_unit: Number(i.preco_unit) }));
@@ -440,6 +444,7 @@ const NUCLEO = {
   async apagarLigacao(id) { await SB.del('ligacoes', { id }); await carregarCRM(); },
   async apagarProspect(id) { await SB.del('prospects', { id }); await carregarCRM(); },
   async salvarOrcamento(d) { const r = await SB.rpc('salvar_orcamento', { p: d }); await carregarCRM(); return r; },
+  async fecharOrcamento(id, p) { const r = await SB.rpc('fechar_orcamento', { p_id: id, p }); await carregarPedidos(); return r; },
   async apagarOrcamento(id) { await SB.del('orcamentos', { id }); await carregarCRM(); },
   async definirSenha(id, senha) { await SB.rpc('definir_senha', { p_usuario: id, p_senha: senha }); }
 };
