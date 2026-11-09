@@ -1389,7 +1389,7 @@ function vLojas(eux) {
       <label class="field"><span>Favorecido</span><input id="pxFav" data-chg="pix-cfg" data-k="favorecido" value="${esc(px.favorecido)}"></label>
       <label class="field"><span>Banco</span><input id="pxBanco" data-chg="pix-cfg" data-k="banco" value="${esc(px.banco)}"></label></div></div>`}`;
 }
-function precoBase(p) { return dinheiro((p.preco || 0) * (1 - (ui.drawer.desc || 0) / 100)); }   // tabela JCN menos o desconto da loja
+function precoBase(p) { return dinheiro((p.preco || 0) * (1 - (ui.drawer.desc || 0) / 100) * (1 + (ui.drawer.acr || 0) / 100)); }   // tabela JCN menos o desconto, mais o acréscimo
 // "liberar" em lote só alcança o que já tem preço na tabela; o resto fica para definir à mão
 function liberarLista(lista) {
   const d = ui.drawer.draft; let fora = 0;
@@ -1404,6 +1404,8 @@ function painelLiberados(d, quem) {
   return `<div class="panel"><h2>Produtos e valores <span class="chip ${n ? 'ok' : rep ? '' : 'warn'}">${n ? n + ' de ' + ps.length + ' liberados' : rep ? 'tabela inteira' : '0 de ' + ps.length + ' liberados'}</span></h2>
     <p class="note" style="margin:0 0 10px">${rep ? 'Marque o que o representante pode vender e defina o valor de cada item. Ele vê só estes produtos, por estes valores, no catálogo e nos orçamentos; no orçamento pode cobrar mais do cliente, nunca menos. Sem nenhum produto marcado, ele usa a Tabela de preços inteira da JCN.' : 'Marque o que a loja pode comprar e defina o valor de cada item. O que não estiver marcado não aparece para ela.'} Nos fogões com duas grelhas, cada grelha é um código: libere uma ou as duas.</p>
     <div class="bar"><label class="field inl"><span>Desconto sobre a tabela JCN, em %</span><input id="ctDesc" class="inp" style="width:5.2rem" type="number" min="0" max="90" step="0.5" inputmode="decimal" data-chg="conta-desc" value="${esc(dr.desc)}"></label></div>
+    <div class="bar"><label class="field inl"><span>Acréscimo sobre a tabela JCN, em %</span><input id="ctAcr" class="inp" style="width:5.2rem" type="number" min="0" max="300" step="0.5" inputmode="decimal" data-chg="conta-acr" value="${esc(dr.acr || 0)}"></label></div>
+    <p class="note" style="margin:-4px 0 10px">O desconto e o acréscimo valem nos botões de liberar abaixo. Depois, cada valor pode ser ajustado à mão.</p>
     <div class="bar"><button class="btn ghost sm" data-act="lib-todos">Liberar todos pela tabela</button><button class="btn ghost sm" data-act="lib-colors">Só a Linha Colors</button><button class="btn ghost sm" data-act="lib-limpar">Limpar</button></div>
     ${(() => { const fg = ps.filter(p => d.liberados[p.id] != null && (p.fornos || []).length); return fg.length && !fg.some(p => p.fornos.some(id => d.liberados[id] != null))
       ? `<p class="note" id="avisoForno" style="margin:0 0 10px">${rep ? 'Este representante tem fogões que aceitam forno, mas nenhum forno avulso liberado, então ele não verá a opção de forno.' : 'Esta loja tem fogões que aceitam forno, mas nenhum forno avulso liberado, então ela não verá a opção de forno.'} Para oferecer, libere a categoria Fornos avulsos.</p>` : ''; })()}
@@ -1572,6 +1574,7 @@ Object.assign(acts, {
 Object.assign(chgs, {
   'pix-cfg': e => { if (eu().papel !== 'admin') return; state.conteudo.pix[e.dataset.k] = e.value.trim(); salvar('conteudo'); },
   'conta-desc': e => { ui.drawer.desc = Math.min(90, Math.max(0, parseFloat(e.value) || 0)); },
+  'conta-acr': e => { ui.drawer.acr = Math.min(300, Math.max(0, parseFloat(e.value) || 0)); },
   'filtro-loja': e => { ui.catLoja = e.value; renderApp(); },
   'busca-loja': e => { ui.buscaLoja = e.value; renderApp(); },
   'cart-qtd': e => { carrinho()[e.dataset.id] = Math.min(999, Math.max(1, parseInt(e.value, 10) || 1)); guardarCarrinho(); renderApp(); },

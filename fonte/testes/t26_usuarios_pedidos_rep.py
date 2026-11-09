@@ -34,6 +34,9 @@ try:
     rita = uid('rita@jcn.test')
     ok(banco(f"select count(*) || '|' || max(preco) filter (where produto_id = '{ZIL}') from catalogo_loja where loja_id = '{rita}'") == '4|1600.00', 'no banco: 4 produtos liberados para a representante, Zilda a 1600')
     ok('rita@jcn.test' in pg.inner_text('.acesso') and '4 produtos liberados' in pg.inner_text('tr:has-text("Rita")'), 'login e senha na tela; a lista mostra quantos produtos ela tem: ' + toast(pg))
+    pg.click('tr:has-text("Rita") [data-act=user-editar]'); W(); pg.fill('#ctAcr', '10'); pg.press('#ctAcr', 'Tab'); W(); pg.click('[data-act=lib-colors]'); W()
+    ok(pg.input_value(f'#pv-{DIR}') == '1639', 'acréscimo de 10%: Colors liberadas a 1639 (1490 + 10%): ' + pg.input_value(f'#pv-{DIR}'))
+    pg.screenshot(path=R + '/testes/shots/t26_acrescimo.png'); pg.keyboard.press('Escape'); W()
     # ---------- editar usuário: nome, e-mail, telefone e perfil
     pg.click('tr:has-text("Marina Tavares") [data-act=user-editar]'); W()
     ok(pg.input_value('#nuEmail') == 'marina@jcn.test' and pg.input_value('#nuSenha') == '', 'editar abre com os dados atuais (senha em branco mantém)')
