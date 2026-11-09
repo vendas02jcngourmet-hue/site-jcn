@@ -18,7 +18,7 @@ function modelos(lista) { const m = new Map(); lista.forEach(x => { const p = x.
 // (na loja, só os que o administrador liberou, pelo valor da conta).
 function fornosDe(p, ctx, u) {
   const lib = ctx === 'loja' ? ((u || {}).liberados || {}) : null;
-  return (p.fornos || []).map(prod).filter(f => f && f.ativo && (cat(f.cat) || {}).ativa && (lib ? lib[f.id] > 0 : ctx === 'site' ? precoSite(f) > 0 : f.preco > 0)).map(f => ({ p: f, preco: lib ? lib[f.id] : ctx === 'site' ? precoSite(f) : f.preco }));
+  return (p.fornos || []).map(prod).filter(f => f && f.ativo && !f.fora && (cat(f.cat) || {}).ativa && (lib ? lib[f.id] > 0 : ctx === 'site' ? precoSite(f) > 0 : f.preco > 0)).map(f => ({ p: f, preco: lib ? lib[f.id] : ctx === 'site' ? precoSite(f) : f.preco }));
 }
 const nomeForno = (f, curto) => f.nome.replace(/^Forno avulso\s+/i, '').replace(curto ? /\s*\(Perfil \d\)$/ : /^$/, '').replace(/^./, c => c.toUpperCase());   // na ficha do fogão o Perfil já está no título
 const rotuloOpcoes = (varias, forno) => varias ? (forno ? 'Escolher grelha e forno' : 'Escolher a grelha') : 'Adicionar, com ou sem forno';
@@ -68,7 +68,7 @@ const BOLETO_DIAS = [1, 2, 3, 4, 5, 15, 28, 30, 45, 60, 75, 90];
 const BOLETO = { pendente: ['Boleto aguardando o financeiro', 'warn'], aprovado: ['Boleto aprovado', 'ok'], recusado: ['Boleto recusado', 'bad'] };
 const ehBoleto = p => !!(p.pagamento && p.pagamento.forma === 'boleto');
 const pagoOk = p => ehBoleto(p) ? p.pagamento.status === 'aprovado' : p.pix.status === 'verificado';
-const paraConferir = p => ehBoleto(p) ? p.pagamento.status === 'pendente' : p.pix.status === 'analise';
+const paraConferir = p => !p.cancelado && (ehBoleto(p) ? p.pagamento.status === 'pendente' : p.pix.status === 'analise');
 const chipPag = p => chip(ehBoleto(p) ? BOLETO[p.pagamento.status] : PIX[p.pix.status]);
 const somaDias = (iso, d) => { const t = new Date(iso + 'T12:00:00'); t.setDate(t.getDate() + d); return t.toISOString().slice(0, 10); };
 const hojeISO = () => { const t = new Date(); return new Date(t.getTime() - t.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -269,7 +269,7 @@ function dLinha(d) {
 /* ---------- vendas: catálogo pela tabela única, com a ficha do produto ---------- */
 const fotoDe = (p, alt = '') => p.fotos[0] ? `<img loading="lazy" src="${src(p.fotos[0])}" alt="${esc(alt)}">` : '<span class="note">Sem foto</span>';
 function vCatalogo(u) {
-  const todos = state.catalogo.produtos.filter(p => p.ativo && (cat(p.cat) || {}).ativa), cats = state.catalogo.categorias.filter(c => todos.some(p => p.cat === c.id));
+  const todos = vendaveis(), cats = state.catalogo.categorias.filter(c => todos.some(p => p.cat === c.id));
   if (!cats.some(c => c.id === ui.catVenda)) ui.catVenda = '';
   const q = (ui.buscaVenda || '').trim().toLowerCase();
   const achados0 = todos.filter(p => (!ui.catVenda || p.cat === ui.catVenda) && (!q || (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q)));
@@ -338,7 +338,7 @@ function dFicha(dr, u) {
 /* ---------- vendas: lançar pedido ---------- */
 function vNovoPedido(u) {
   const d = ui.pedido || (ui.pedido = novoPedidoVazio());
-  const ativos = state.catalogo.produtos.filter(p => p.ativo);
+  const ativos = state.catalogo.produtos.filter(p => p.ativo && !p.fora);
   let total = 0;
   const linhas = d.itens.map((it, i) => { const p = prod(it.produto); const pr = p ? p.preco : 0; total += pr * (it.qtd || 0);
     return `<div class="row-line" style="grid-template-columns:minmax(0,2.2fr) 76px minmax(0,1fr) auto">
@@ -382,19 +382,20 @@ function arqLi(id, remAct, extra = '') {
 function vPedidos(u) {
   const lj = u.papel === 'ecommerce', f = ehFin(u) ? (ui.filtroPed || '') : '';
   const meus = state.pedidos.filter(p => ehFin(u) || p.vendedor === u.id || (u.papel === 'vendedor' && respDe(p) === u.id));   // o vendedor acompanha os pedidos das lojas dele
-  const lista = meus.filter(p => !f || (f === 'ecommerce' || f === 'site' ? p.origem === f : f === 'analise' ? paraConferir(p) : f === 'boleto' ? ehBoleto(p) : p.origem !== 'ecommerce' && p.origem !== 'site')).sort((a, b) => b.numero - a.numero);
+  const lista = meus.filter(p => !f || (f === 'cancelados' ? !!p.cancelado : f === 'ecommerce' || f === 'site' ? p.origem === f : f === 'analise' ? paraConferir(p) : f === 'boleto' ? ehBoleto(p) : p.origem !== 'ecommerce' && p.origem !== 'site')).sort((a, b) => b.numero - a.numero);
   const vazio = lj ? 'Nenhum pedido ainda. Escolha os produtos, monte o carrinho e envie o comprovante do PIX.' : f ? 'Nenhum pedido neste filtro.' : 'Nenhum pedido ainda. Use "Lançar pedido" para registrar a primeira venda.';
   return `<h1>${lj || u.papel === 'representante' ? 'Meus pedidos' : 'Pedidos'}</h1><p class="sub">${ehFin(u) ? 'Confira os comprovantes de PIX, aprove os boletos, baixe as etiquetas enviadas pelas lojas e libere a expedição.' : lj ? 'Acompanhe a conferência do PIX e a expedição. Abra um pedido para anexar mais etiquetas ou trocar o comprovante.' : u.papel === 'representante' ? 'Os pedidos que você lançou. Abra um pedido para acompanhar o pagamento e o envio.' : 'Seus pedidos e os das lojas de e-commerce que você atende. Abra um pedido para anexar o comprovante do PIX, ver a aprovação do boleto ou baixar a etiqueta.'}</p>
-  ${ehFin(u) ? `<div class="bar"><label class="sr" for="fp">Filtrar pedidos</label><select id="fp" class="inp" style="width:auto" data-chg="filtro-ped">${[['', 'Todos os pedidos'], ['analise', 'Pagamentos para conferir'], ['boleto', 'Boleto parcelado'], ['site', 'Loja do site (consumidor final)'], ['ecommerce', 'Vindos do e-commerce'], ['interno', 'Lançados por vendedores']].map(([k, t]) => `<option value="${k}" ${k === f ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` : ''}
+  ${ehFin(u) ? `<div class="bar"><label class="sr" for="fp">Filtrar pedidos</label><select id="fp" class="inp" style="width:auto" data-chg="filtro-ped">${[['', 'Todos os pedidos'], ['analise', 'Pagamentos para conferir'], ['boleto', 'Boleto parcelado'], ['site', 'Loja do site (consumidor final)'], ['ecommerce', 'Vindos do e-commerce'], ['interno', 'Lançados por vendedores'], ['cancelados', 'Cancelados']].map(([k, t]) => `<option value="${k}" ${k === f ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` : ''}
   ${lista.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nº</th><th>Data</th>${lj ? '<th>Itens</th>' : '<th>Cliente</th>'}${ehFin(u) ? '<th>Origem</th>' : ''}<th class="num">Total</th><th>Pagamento</th><th>Envio</th><th>Etiquetas</th><th></th></tr></thead><tbody>
-  ${lista.map(p => `<tr><td><b>${p.numero}</b></td><td>${dataBR(p.criado)}</td>${lj ? `<td>${p.itens.map(i => `${i.qtd} × ${esc(i.nome)}`).join('<br>')}</td>` : `<td>${esc(p.cliente.nome)}<br><span class="note">${esc(p.cliente.cidade)}</span>${u.papel === 'vendedor' && p.vendedor !== u.id ? '<br>' + chip(['E-commerce', 'info']) : ''}</td>`}
+  ${lista.map(p => `<tr${p.cancelado ? ' class="cancelado"' : ''}><td><b>${p.numero}</b></td><td>${dataBR(p.criado)}</td>${lj ? `<td>${p.itens.map(i => `${i.qtd} × ${esc(i.nome)}`).join('<br>')}</td>` : `<td>${esc(p.cliente.nome)}<br><span class="note">${esc(p.cliente.cidade)}</span>${u.papel === 'vendedor' && p.vendedor !== u.id ? '<br>' + chip(['E-commerce', 'info']) : ''}</td>`}
     ${ehFin(u) ? `<td>${p.origem === 'ecommerce' ? chip(['E-commerce', 'info']) : p.origem === 'site' ? chip(['Loja do site', 'ok']) : esc((user(p.vendedor) || {}).nome || '')}</td>` : ''}<td class="num">${brl(totalPedido(p))}</td>
-    <td>${chipPag(p)}</td><td>${chip(ENVIO[p.envio])}</td><td>${p.etiquetas.length || '<span class="note">nenhuma</span>'}</td>
+    <td>${p.cancelado ? chip(['Cancelado', 'bad']) : chipPag(p)}</td><td>${p.cancelado ? '<span class="note">—</span>' : chip(ENVIO[p.envio])}</td><td>${p.etiquetas.length || '<span class="note">nenhuma</span>'}</td>
     <td><button class="btn ghost sm" data-act="abrir-pedido" data-id="${esc(p.id)}">Abrir</button></td></tr>`).join('')}
   </tbody></table></div>` : `<div class="empty">${vazio}</div>`}`;
 }
 function dPedido(p, u) {
-  const adm = u.papel === 'admin', fin = ehFin(u), lj = p.origem === 'ecommerce', dono = p.vendedor === u.id, comp = p.pix.arquivo && state.arquivos[p.pix.arquivo];
+  const canc = p.cancelado, admin = u.papel === 'admin';                         // pedido cancelado fica só para consulta, até desfazer
+  const adm = admin && !canc, fin = ehFin(u) && !canc, lj = p.origem === 'ecommerce', dono = p.vendedor === u.id && !canc, comp = p.pix.arquivo && state.arquivos[p.pix.arquivo];
   const et = ['aguardando', 'expedicao', 'enviado'], ix = et.indexOf(p.envio), unidades = p.itens.reduce((s, i) => s + i.qtd, 0);
   const pode = adm || dono, bol = ehBoleto(p), pg = p.pagamento || {};          // o vendedor responsável por uma loja só acompanha
   const repr = u.papel === 'representante';                                       // representante só faz o pedido: depois, só envia o comprovante que faltar
@@ -404,6 +405,7 @@ function dPedido(p, u) {
   ${p.origem === 'site' ? `<div class="panel"><h2>Entrega e contato</h2><p style="margin:0">${esc(enderecoTxt(p.cliente.endereco))}</p>
     <p class="note" style="margin:6px 0 0">${esc([p.cliente.fone, p.cliente.email].filter(Boolean).join(' · '))}</p>
     <p class="note" style="margin:6px 0 0">O frete não entra no total: combine com o cliente antes de enviar.</p></div>` : ''}
+  ${canc ? `<div class="aviso-canc" role="status"><b>Pedido cancelado</b> em ${dataBR(canc.em)}${canc.por && user(canc.por) ? ' por ' + esc(user(canc.por).nome) : ''}.${canc.motivo ? ' Motivo: ' + esc(canc.motivo) + '.' : ''} Ele não entra nas contas do financeiro e não segue para a expedição.</div>` : ''}
   <div class="tbl-wrap" style="margin-bottom:16px"><table class="tbl" style="min-width:0"><thead><tr><th>Item</th><th class="num">Qtd.</th><th class="num">Unitário</th><th class="num">Subtotal</th></tr></thead><tbody>
     ${p.itens.map(i => `<tr><td>${esc(i.nome)}${i.codigo ? `<br><span class="note">${esc(i.codigo)}</span>` : ''}</td><td class="num">${i.qtd}</td><td class="num">${brl(i.preco)}</td><td class="num">${brl(i.qtd * i.preco)}</td></tr>`).join('')}
     <tr><td colspan="3" class="num"><b>Total</b></td><td class="num"><b>${brl(totalPedido(p))}</b></td></tr></tbody></table></div>
@@ -431,27 +433,51 @@ function dPedido(p, u) {
     ${adm ? `<div class="bar" style="margin:0"><button class="btn sm" data-act="envio" data-s="expedicao" ${pagoOk(p) && p.envio === 'aguardando' ? '' : 'disabled'}>Liberar para expedição</button>
       <button class="btn sm" data-act="envio" data-s="enviado" ${p.envio === 'expedicao' && p.etiquetas.length ? '' : 'disabled'}>Marcar como enviado</button></div>
       <p class="note" style="margin:8px 0 0">A expedição só é liberada com o ${bol ? 'boleto aprovado' : 'PIX verificado'}, e o envio só é marcado com uma etiqueta anexada.</p>` : ''}</div>
+  ${admin ? `<div class="panel" id="painelCancelar"><h2>Cancelar ou apagar</h2>
+    ${canc ? `<p class="note" style="margin:0 0 10px">Desfazendo o cancelamento, o pedido volta a valer, do jeito que estava.</p>
+      <div class="bar" style="margin:0"><button class="btn sm" data-act="ped-descancelar">Desfazer cancelamento</button></div>`
+    : `<label class="field"><span>Motivo do cancelamento (opcional)</span><input id="pcMotivo" maxlength="300" placeholder="ex.: cliente desistiu"></label>
+      <div class="bar" style="margin:10px 0 0"><button class="btn danger sm" data-act="ped-cancelar" data-confirm="Confirmar cancelamento">Cancelar pedido</button></div>
+      <p class="note" style="margin:8px 0 0">O pedido cancelado continua na lista, marcado, e sai das contas do financeiro. Dá para desfazer.</p>`}
+    <div class="bar" style="margin:14px 0 0"><button class="btn danger sm" data-act="ped-apagar" data-confirm="Confirmar: apagar de vez">Apagar pedido</button></div>
+    <p class="note" style="margin:8px 0 0">Apagar tira o pedido do sistema, com os itens, o comprovante e as etiquetas. Não tem volta.${/^Orçamento nº/.test(p.obs || '') ? ' O orçamento de onde ele veio volta para Em aberto.' : ''}</p></div>` : ''}
   <div class="foot"><button class="btn ghost" data-act="fechar">Fechar</button></div>`;
 }
 
 /* ---------- usuários ---------- */
 function vUsuarios() {
-  return `<h1>Usuários</h1><p class="sub">Quem entra em cada portal. O perfil define o que a pessoa vê: administradores gerenciam tudo; vendedores lançam pedidos e cuidam das contas de e-commerce deles; representantes só lançam pedidos; lojas veem só os próprios pedidos.</p>
+  const eux = eu();
+  return `<h1>Usuários</h1><p class="sub">Quem entra em cada portal. O perfil define o que a pessoa vê: administradores gerenciam tudo; vendedores fazem orçamentos e cuidam das contas de e-commerce deles; representantes fazem orçamentos, com os produtos e valores que você escolher; lojas veem só os próprios pedidos. Use Editar para mudar nome, e-mail, perfil, telefone ou senha.</p>
   ${ui.acesso && ui.acesso.usuario ? `<div class="acesso" role="status"><h2>Acesso de ${esc(ui.acesso.nome)}</h2>
     <p>Envie estes dados para a pessoa e peça que ela troque a senha no primeiro acesso (botão "Trocar senha"). A senha não aparece de novo depois que você sair desta tela.</p>
     <dl id="acDados"><div><dt>E-mail ou login</dt><dd>${esc(ui.acesso.login)}</dd></div><div><dt>Senha</dt><dd>${esc(ui.acesso.senha)}</dd></div></dl></div>` : ''}
+  <div class="bar"><span class="grow"></span><button class="btn" data-act="user-novo">Novo usuário</button></div>
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>E-mail ou login</th><th>Perfil</th><th>Empresa</th><th>Ativo</th><th></th></tr></thead><tbody>
-  ${state.usuarios.map(u => `<tr><td><b>${esc(u.nome)}</b></td><td>${esc(u.papel === 'ecommerce' ? u.login : u.email || '')}</td><td>${chip([PAPEIS[u.papel], u.papel === 'admin' ? 'info' : ''])}</td><td>${esc(u.empresa)}</td>
+  ${state.usuarios.map(u => { const nl = u.papel === 'representante' ? Object.keys(u.liberados || {}).length : 0; return `<tr><td><b>${esc(u.nome)}</b>${u.contato ? `<br><span class="note">${esc(u.contato)}</span>` : ''}</td><td>${esc(u.papel === 'ecommerce' ? u.login : u.email || '')}</td>
+    <td>${chip([PAPEIS[u.papel], u.papel === 'admin' ? 'info' : ''])}${u.papel === 'representante' ? `<br><span class="note">${nl ? nl + (nl > 1 ? ' produtos liberados' : ' produto liberado') : 'tabela inteira'}</span>` : ''}</td><td>${esc(u.empresa)}</td>
     <td><input type="checkbox" class="toggle" data-act="toggle-user" data-id="${esc(u.id)}" ${u.ativo ? 'checked' : ''} ${u.id === sessao ? 'disabled' : ''} aria-label="${esc(u.nome)} ativo"></td>
-    <td>${u.id === sessao ? '' : `<button class="btn ghost sm" data-act="user-senha" data-id="${esc(u.id)}" data-confirm="Confirmar: gerar senha nova">Nova senha</button>`}</td></tr>`).join('')}
+    <td><div class="bar" style="margin:0;flex-wrap:nowrap"><button class="btn ghost sm" data-act="user-editar" data-id="${esc(u.id)}" aria-label="Editar ${esc(u.nome)}">Editar</button>
+    ${u.id === sessao ? '' : `<button class="btn ghost sm" data-act="user-senha" data-id="${esc(u.id)}" data-confirm="Confirmar: gerar senha nova">Nova senha</button>`}</div></td></tr>`; }).join('')}
   </tbody></table></div>
-  <div class="panel" style="margin-top:16px"><h2>Novo usuário</h2><div class="grid2">
-    <label class="field"><span>Nome</span><input id="nuNome"></label><label class="field"><span>E-mail</span><input id="nuEmail" type="email"></label>
-    <label class="field"><span>Perfil</span><select id="nuPapel">${Object.entries(PAPEIS).filter(([k]) => k !== 'ecommerce').map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></label>
-    <label class="field"><span>Empresa</span><input id="nuEmp" value="JCN Gourmet"></label>
-    <label class="field"><span>Senha inicial</span><input id="nuSenha" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="mínimo de 8 caracteres"></label></div>
-    <div class="bar" style="margin:10px 0 0"><button class="btn sm" data-act="user-add">Criar usuário</button><button class="btn ghost sm" data-act="user-gerar">Gerar senha</button></div>
-    <p class="note" style="margin:8px 0 0">Você define a senha inicial e passa para a pessoa, que troca no primeiro acesso. As lojas de e-commerce são criadas em Contas e-commerce, com login, senha e produtos liberados.</p></div>`;
+  <p class="note" style="margin:10px 0 0">As lojas de e-commerce são criadas em Contas e-commerce, com login, senha e produtos liberados. O Editar de uma loja abre a conta dela.</p>`;
+}
+// criar e editar um usuário da equipe; no representante, os produtos e valores dele (igual à conta de e-commerce)
+function dUsuario(d) {
+  const novo = !d.id, euMesmo = d.id === sessao, rep = d.papel === 'representante';
+  return `<h2 class="dt">${novo ? 'Novo usuário' : 'Editar ' + esc(d.nome)}</h2>
+  <div class="rows">
+    <div class="grid2"><label class="field"><span>Nome</span><input id="nuNome" data-f="nome" value="${esc(d.nome)}"></label>
+      <label class="field"><span>E-mail (é o login)</span><input id="nuEmail" type="email" data-f="email" autocapitalize="none" spellcheck="false" value="${esc(d.email)}"></label></div>
+    <div class="grid2"><label class="field"><span>Perfil</span><select id="nuPapel" data-f="papel" data-chg="usr-papel" ${euMesmo ? 'disabled' : ''}>${Object.entries(PAPEIS).filter(([k]) => k !== 'ecommerce').map(([k, t]) => `<option value="${k}" ${k === d.papel ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+      <label class="field"><span>Empresa</span><input id="nuEmp" data-f="empresa" value="${esc(d.empresa)}"></label></div>
+    <div class="grid2"><label class="field"><span>Telefone ou WhatsApp</span><input id="nuContato" data-f="contato" inputmode="tel" value="${esc(d.contato)}"></label>
+      <label class="field"><span>${novo ? 'Senha inicial' : 'Nova senha'}</span><input id="nuSenha" data-f="senhaNova" autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(d.senhaNova)}" placeholder="${novo ? 'mínimo de 8 caracteres' : 'em branco mantém a atual'}"></label></div>
+    <div class="bar" style="margin:0"><button class="btn ghost sm" data-act="user-gerar">Gerar senha</button>
+      <span class="note">${novo ? 'Você define a senha inicial e passa para a pessoa, que troca no primeiro acesso.' : euMesmo ? 'Esta é a sua conta: o perfil e o "ativo" não mudam por aqui.' : 'Trocando o e-mail, a pessoa passa a entrar com o e-mail novo.'}</span></div>
+  </div>
+  ${rep ? painelLiberados(d, 'rep') : ''}
+  ${euMesmo ? '' : `<label class="check"><input type="checkbox" id="nuAtivo" data-f="ativo" ${d.ativo ? 'checked' : ''}>Usuário ativo (pode entrar no site)</label>`}
+  <div class="foot"><button class="btn" data-act="user-add">${novo ? 'Criar usuário' : 'Salvar alterações'}</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
 }
 
 /* ---------- gaveta lateral e visualizador ---------- */
@@ -463,6 +489,7 @@ function renderDrawer() {
   if (dr.tipo === 'pedido') { const p = state.pedidos.find(x => x.id === dr.id); if (!p) return fecharDrawer(); html = dPedido(p, u); }
   if (dr.tipo === 'linha') html = dLinha(dr.draft);
   if (dr.tipo === 'conta') html = dConta(dr.draft);
+  if (dr.tipo === 'usuario') html = dUsuario(dr.draft);
   if (dr.tipo === 'ficha') html = dFicha(dr, u);
   if (dr.tipo === 'sacola') html = dSacola();
   if (dr.tipo === 'senha') html = `<h2 class="dt">Trocar a minha senha</h2><div class="rows">
@@ -650,16 +677,57 @@ const acts = {
   'envio': e => { const p = pedidoAberto(); p.envio = e.dataset.s; salvar('pedidos'); refresh(); toast(e.dataset.s === 'enviado' ? 'Pedido marcado como enviado.' : 'Pedido liberado para expedição.'); },
   // usuários
   'toggle-user': e => { const eux = eu(), x = user(e.dataset.id); if (!x || !(eux.papel === 'admin' || (eux.papel === 'rh_admin' && ehRH(x.papel)) || (eux.papel === 'vendedor' && x.papel === 'ecommerce' && x.vendedorResp === eux.id))) { e.checked = !e.checked; return; } x.ativo = e.checked; salvar('usuarios'); },
-  'user-gerar': () => { $('#nuSenha').value = gerarSenha(); },
+  'user-novo': () => { if (eu().papel !== 'admin') return; ui.acesso = null; ui.drawer = { tipo: 'usuario', desc: 0, draft: { id: '', nome: '', email: '', papel: 'vendedor', empresa: 'JCN Gourmet', contato: '', senhaNova: '', ativo: true, liberados: {} } }; renderDrawer(); },
+  'user-editar': e => {
+    const x = user(e.dataset.id); if (eu().papel !== 'admin' || !x) return;
+    if (x.papel === 'ecommerce') return acts['editar-conta'](e);
+    ui.acesso = null; ui.drawer = { tipo: 'usuario', desc: 0, draft: { id: x.id, nome: x.nome, email: x.email || '', papel: x.papel, empresa: x.empresa || '', contato: x.contato || '', senhaNova: '', ativo: !!x.ativo, liberados: { ...(x.liberados || {}) } } }; renderDrawer();
+  },
+  'user-gerar': () => { if (!ui.drawer || ui.drawer.tipo !== 'usuario') return; ui.drawer.draft.senhaNova = gerarSenha(); renderDrawer(); },
   'user-add': async () => {
-    if (eu().papel !== 'admin' || ui.ocupado) return;
-    const nome = $('#nuNome').value.trim(), email = $('#nuEmail').value.trim().toLowerCase(), papel = $('#nuPapel').value, senha = $('#nuSenha').value, empresa = $('#nuEmp').value.trim();
+    if (eu().papel !== 'admin' || ui.ocupado || !ui.drawer || ui.drawer.tipo !== 'usuario') return;
+    const d = ui.drawer.draft, antigo = d.id ? user(d.id) : null, euMesmo = !!antigo && antigo.id === sessao;
+    const nome = (d.nome || '').trim(), email = (d.email || '').trim().toLowerCase(), papel = euMesmo ? antigo.papel : d.papel, senha = d.senhaNova || '';
     if (!nome || !/^\S+@\S+\.\S+$/.test(email)) return toast('Informe nome e um e-mail válido.');
-    if (senha.length < 8) return toast('Defina uma senha inicial com pelo menos 8 caracteres, ou use "Gerar senha".');
-    if (state.usuarios.some(u => (u.email || '').toLowerCase() === email)) return toast('Já existe um usuário com este e-mail.');
+    if (!PAPEIS[papel] || papel === 'ecommerce') return toast('Escolha o perfil.');
+    if (!antigo && senha.length < 8) return toast('Defina uma senha inicial com pelo menos 8 caracteres, ou use "Gerar senha".');
+    if (antigo && senha && senha.length < 8) return toast('A senha nova precisa ter pelo menos 8 caracteres. Deixe em branco para manter a atual.');
+    if (state.usuarios.some(u => u.id !== d.id && (u.email || '').toLowerCase() === email)) return toast('Já existe um usuário com este e-mail.');
+    if (antigo && antigo.papel === 'vendedor' && papel !== 'vendedor' && lojas().some(l => l.vendedorResp === antigo.id)) return toast('Este vendedor tem contas de e-commerce. Passe as contas para outro vendedor, em Contas e-commerce, antes de mudar o perfil.');
+    const liberados = {};
+    if (papel === 'representante') for (const p of state.catalogo.produtos) {
+      if (d.liberados[p.id] == null) continue;
+      const v = dinheiro(d.liberados[p.id]);
+      if (!(v > 0)) return toast('Informe o valor de ' + p.nome + ' para o representante, ou desmarque o produto.');
+      liberados[p.id] = v;
+    }
+    const u = { nome, email, papel, empresa: (d.empresa || '').trim(), contato: (d.contato || '').trim(), ativo: euMesmo || !!d.ativo, liberados };
+    ui.ocupado = true; const bt = $('[data-act=user-add]'); if (bt) { bt.disabled = true; bt.textContent = 'Gravando…'; }
+    try { await API.salvarUsuario(u, senha, antigo); }
+    catch (err) { ui.ocupado = false; if (bt) { bt.disabled = false; bt.textContent = antigo ? 'Salvar alterações' : 'Criar usuário'; } return toast(msgErro(err)); }
+    ui.ocupado = false; ui.acesso = senha ? { nome, login: email, senha, usuario: true } : null;
+    fecharDrawer(); renderApp(); scrollTo(0, 0);
+    const nl = Object.keys(liberados).length;
+    toast((antigo ? 'Alterações salvas.' : 'Usuário criado. Envie o e-mail e a senha para a pessoa.') + (papel === 'representante' ? nl ? ` O representante vê ${nl} ${nl > 1 ? 'produtos' : 'produto'}, pelos valores definidos.` : ' O representante usa a Tabela de preços inteira.' : ''));
+  },
+  // pedido: cancelar, desfazer e apagar (só a administração)
+  'ped-cancelar': async () => {
+    const p = pedidoAberto(); if (!p || eu().papel !== 'admin' || ui.ocupado) return;
     ui.ocupado = true;
-    try { await API.criarAcesso({ email, senha, perfil: { nome, papel, empresa: empresa || null, ativo: true } }); ui.acesso = { nome, login: email, senha, usuario: true }; renderApp(); toast('Usuário criado. Envie o e-mail e a senha para a pessoa.'); }
-    catch (err) { toast(msgErro(err)); } finally { ui.ocupado = false; }
+    try { await API.cancelarPedido(p.id, (($('#pcMotivo') || {}).value || '').trim()); toast(`Pedido nº ${p.numero} cancelado.`); } catch (err) { toast(msgErro(err)); } finally { ui.ocupado = false; }
+    refresh();
+  },
+  'ped-descancelar': async () => {
+    const p = pedidoAberto(); if (!p || eu().papel !== 'admin' || ui.ocupado) return;
+    ui.ocupado = true;
+    try { await API.cancelarPedido(p.id, null); toast(`O pedido nº ${p.numero} voltou a valer.`); } catch (err) { toast(msgErro(err)); } finally { ui.ocupado = false; }
+    refresh();
+  },
+  'ped-apagar': async () => {
+    const p = pedidoAberto(); if (!p || eu().papel !== 'admin' || ui.ocupado) return;
+    ui.ocupado = true;
+    try { await API.apagarPedido(p.id); } catch (err) { ui.ocupado = false; return toast(msgErro(err)); }
+    ui.ocupado = false; fecharDrawer(); renderApp(); toast(`Pedido nº ${p.numero} apagado.`);
   },
   'user-senha': async e => {
     const id = e.dataset.id, s = gerarSenha(), u = user(id); if (eu().papel !== 'admin' || !u) return;
@@ -671,6 +739,7 @@ const chgs = {
   'filtro-ped': e => { ui.filtroPed = e.value; renderApp(); },
   'filtro-venda': e => { ui.catVenda = e.value; renderApp(); },
   'busca-prod': e => { ui.buscaProd = e.value; renderApp(); },
+  'usr-papel': e => { if (!ui.drawer || ui.drawer.tipo !== 'usuario') return; ui.drawer.draft.papel = e.value; renderDrawer(); const x = $('#nuPapel'); if (x) x.focus(); },
   'cat-nome': e => { const c = cat(e.dataset.id), v = e.value.trim(); if (v) { c.nome = v; salvar('catalogo'); } else e.value = c.nome; },
   'conteudo': e => { state.conteudo[e.dataset.k] = e.value; salvar('conteudo'); },
   'item-prod': e => { ui.pedido.itens[+e.dataset.i].produto = e.value; renderApp(); },

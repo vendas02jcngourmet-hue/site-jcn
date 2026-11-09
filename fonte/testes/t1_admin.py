@@ -9,20 +9,21 @@ try:
     pg.goto(B); W(1500); entrar(pg, 'vendas', 'admin@jcn.test', 'Admin#2026')
     # ---------- usuários
     ir(pg, 'usuarios'); ok(pg.locator('.tbl tbody tr').count() == 1 and 'admin@jcn.test' in pg.inner_text('.tbl tbody'), 'lista de usuários vem do banco: só a administração')
-    pg.fill('#nuNome', 'Marina Tavares'); pg.fill('#nuEmail', 'marina@jcn.test'); pg.select_option('#nuPapel', 'vendedor'); pg.click('[data-act=user-add]'); W()
+    NU = lambda: (pg.click('[data-act=user-novo]'), W(150))
+    NU(); pg.fill('#nuNome', 'Marina Tavares'); pg.fill('#nuEmail', 'marina@jcn.test'); pg.select_option('#nuPapel', 'vendedor'); pg.click('[data-act=user-add]'); W()
     ok('senha inicial' in toast(pg), 'sem senha inicial não cria: ' + toast(pg))
     pg.click('[data-act=user-gerar]'); senhaM = pg.input_value('#nuSenha'); ok(len(senhaM) >= 10, 'gera uma senha forte: ' + senhaM)
     pg.fill('#nuSenha', 'Marina#2026'); pg.click('[data-act=user-add]'); parado(pg)
     ok('marina@jcn.test' in pg.inner_text('.acesso') and 'Marina#2026' in pg.inner_text('.acesso') and pg.locator('.tbl tbody tr').count() == 2, 'vendedora criada; e-mail e senha aparecem para enviar à pessoa')
     ok(banco("select papel || '|' || (encrypted_password like '$2%')::text || '|' || (encrypted_password <> 'Marina#2026')::text from perfis p join auth.users u on u.id = p.id where p.email = 'marina@jcn.test'") == 'vendedor|true|true', 'no banco: perfil vendedor e senha guardada embaralhada (bcrypt), nunca em texto')
     for nome, email, papel, senha in [('Paulo Mendes', 'paulo@jcn.test', 'representante', 'Paulo#2026'), ('Bruno Castro', 'bruno@jcn.test', 'vendedor', 'Bruno#2026')]:
-        pg.fill('#nuNome', nome); pg.fill('#nuEmail', email); pg.select_option('#nuPapel', papel); pg.fill('#nuSenha', senha); pg.click('[data-act=user-add]'); parado(pg)
+        NU(); pg.fill('#nuNome', nome); pg.fill('#nuEmail', email); pg.select_option('#nuPapel', papel); pg.fill('#nuSenha', senha); pg.click('[data-act=user-add]'); parado(pg)
     ok(banco("select string_agg(papel::text, ',' order by email) from perfis") == 'admin,vendedor,vendedor,representante', 'quatro perfis no banco: ' + banco("select string_agg(email || '=' || papel, ', ' order by email) from perfis"))
-    pg.fill('#nuNome', 'Repetida'); pg.fill('#nuEmail', 'marina@jcn.test'); pg.fill('#nuSenha', 'Outra#2026'); pg.click('[data-act=user-add]'); W()
-    ok('Já existe' in toast(pg), 'e-mail repetido é recusado: ' + toast(pg))
+    NU(); pg.fill('#nuNome', 'Repetida'); pg.fill('#nuEmail', 'marina@jcn.test'); pg.fill('#nuSenha', 'Outra#2026'); pg.click('[data-act=user-add]'); W()
+    ok('Já existe' in toast(pg), 'e-mail repetido é recusado: ' + toast(pg)); pg.keyboard.press('Escape'); W()
     # cadastro que parou no meio: o login existe no Auth, mas sem perfil
     banco("insert into auth.users (email, encrypted_password, email_confirmed_at) values ('rita@jcn.test', crypt('qualquer', gen_salt('bf', 4)), now())")
-    pg.fill('#nuNome', 'Rita Prado'); pg.fill('#nuEmail', 'rita@jcn.test'); pg.select_option('#nuPapel', 'representante'); pg.fill('#nuSenha', 'Rita#2026x'); pg.click('[data-act=user-add]'); parado(pg)
+    NU(); pg.fill('#nuNome', 'Rita Prado'); pg.fill('#nuEmail', 'rita@jcn.test'); pg.select_option('#nuPapel', 'representante'); pg.fill('#nuSenha', 'Rita#2026x'); pg.click('[data-act=user-add]'); parado(pg)
     ok(banco("select count(*) from perfis where email = 'rita@jcn.test' and papel = 'representante'") == '1' and banco("select (encrypted_password = crypt('Rita#2026x', encrypted_password))::text from auth.users where email = 'rita@jcn.test'") == 'true', 'cadastro interrompido é retomado: perfil criado e senha nova valendo')
     # desativar e nova senha
     pg.click('tr:has-text("Rita Prado") [data-act=toggle-user]'); parado(pg); ok(banco("select ativo::text from perfis where email = 'rita@jcn.test'") == 'false', 'desativar usuário grava no banco')

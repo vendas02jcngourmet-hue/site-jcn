@@ -24,9 +24,9 @@ function avisoOrc() {
 
 /* o editor do orçamento: o mesmo na tela de ligações e na gaveta. Duas abas: os itens e o motivo de não ter sido concluído */
 function orcEditor(d, onde, so) {
-  const ativos = state.catalogo.produtos.filter(p => p.ativo), dis = so ? 'disabled' : '', aba = d.aba || 'itens', id = x => `${x}-${onde}`;
+  const ativos = state.catalogo.produtos.filter(p => p.ativo && !p.fora), dis = so ? 'disabled' : '', aba = d.aba || 'itens', id = x => `${x}-${onde}`;
   const opcoes = it => `<option value="">Escolha o produto</option>${state.catalogo.categorias.map(c => { const g = ativos.filter(a => a.cat === c.id); return g.length ? `<optgroup label="${esc(c.nome)}">${g.map(a => `<option value="${esc(a.id)}" ${a.id === it.produto_id ? 'selected' : ''}>${esc(rotulo(a))}${a.codigo ? ' · ' + esc(a.codigo) : ''}</option>`).join('')}</optgroup>` : ''; }).join('')}
-    <option value="__livre" ${it.livre && !it.produto_id ? 'selected' : ''}>Outro item (escrever)</option>`;
+    ${repCat() ? '' : `<option value="__livre" ${it.livre && !it.produto_id ? 'selected' : ''}>Outro item (escrever)</option>`}`;
   const itensV = d.itens.filter(it => it.produto_id || it.livre || (it.descricao || '').trim());
   const linhas = d.itens.map((it, i) => !(it.produto_id || it.livre || (it.descricao || '').trim()) ? '' : `<div class="orc-item">
       <div class="orc-prod">${it.produto_id || !it.livre ? `<div class="orc-desc"><b>${esc(it.descricao || 'Item')}</b>${it.codigo ? `<small>${esc(it.codigo)}</small>` : ''}</div>`
@@ -53,7 +53,7 @@ function orcEditor(d, onde, so) {
 /* montador do orçamento: escolhe o produto com cliques, depois a grelha (obrigatória) e o forno (opcional) */
 function montador(d, onde) {
   const k = d.pick || (d.pick = { cat: 'colors', busca: '', modelo: '', sel: '', forno: '', qtd: 1 });
-  const ativos = state.catalogo.produtos.filter(p => p.ativo && (cat(p.cat) || {}).ativa), u = eu();
+  const ativos = vendaveis(), u = eu();
   const de = (a, x) => `data-act="${a}" data-onde="${onde}"${x || ''}`;
   if (k.modelo) {
     const g = modelos(ativos).find(m => m.some(p => p.id === k.modelo)) || [], p0 = g[0];
@@ -87,11 +87,18 @@ function montador(d, onde) {
         <small>${esc(g.map(x => x.codigo).filter(Boolean).join(' · '))}</small><span class="pk-pr">${isFinite(mn) ? (g.length > 1 ? 'a partir de ' : '') + brl(mn) : 'Preço a definir'}${g.length > 1 ? ' · 2 grelhas' : ''}${fo ? ' · forno opcional' : ''}</span></button>`; }).join('') || '<p class="note">Nenhum produto encontrado.</p>'}</div></div>`;
 }
 // confere o rascunho antes de gravar; devolve a mensagem de erro ou ''
+const repCat = () => !!state.repCat && !!eu() && eu().papel === 'representante';
 function problemaOrc(d) {
   const itens = d.itens.filter(i => i.produto_id || (i.descricao || '').trim());
   if (!itens.length) return 'Coloque pelo menos um item no orçamento.';
   if (itens.some(i => !(+i.quantidade >= 1))) return 'Informe a quantidade de cada item.';
   if (itens.some(i => !(+i.preco_unit >= 0))) return 'Confira o preço dos itens.';
+  if (repCat() && !d.pedido_id) {                       // representante com produtos escolhidos: só os dele, nunca abaixo do valor liberado
+    const fora = itens.find(i => { const p = prod(i.produto_id); return !p || p.fora; });
+    if (fora) return `"${fora.descricao || 'Item sem produto'}" não está entre os seus produtos. Escolha um produto da sua lista.`;
+    const baixo = itens.find(i => +i.preco_unit < prod(i.produto_id).preco - 0.001);
+    if (baixo) return `O valor de ${baixo.descricao} não pode ficar abaixo de ${brl(prod(baixo.produto_id).preco)}.`;
+  }
   if (d.situacao === 'nao_concluido' && !d.motivo) return 'Na aba "Por que não fechou", escolha o motivo.';
   return '';
 }

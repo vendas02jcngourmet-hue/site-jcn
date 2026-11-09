@@ -14,7 +14,7 @@ function gerarSenha(n = 10) {
 }
 const lojas = () => state.usuarios.filter(u => u.papel === 'ecommerce');
 const dinheiro = n => Math.round(+((Number(n) || 0) * 100).toFixed(4)) / 100;   // 676,90 × 0,95 dá 643,0549999 na conta do computador: arredonda como no papel (643,06)
-const vendaveis = () => state.catalogo.produtos.filter(p => p.ativo && (cat(p.cat) || {}).ativa);
+const vendaveis = () => state.catalogo.produtos.filter(p => p.ativo && !p.fora && (cat(p.cat) || {}).ativa);
 /* o que a loja enxerga: só o que o administrador liberou, pelo valor que ele definiu */
 function liberadosDe(u) { const l = u.liberados || {}; return vendaveis().filter(p => l[p.id] > 0).map(p => ({ p, preco: l[p.id] })); }
 function carrinho() {
@@ -62,9 +62,26 @@ function liberarLista(lista) {
   renderDrawer();
   if (fora) toast(`${fora} ${fora > 1 ? 'produtos ficaram' : 'produto ficou'} de fora por não ter preço na tabela. Marque e digite o valor, ou cadastre o preço em Produtos.`);
 }
-function dConta(d) {
-  const nova = !user(d.id), dr = ui.drawer, ps = vendaveis(), n = ps.filter(p => d.liberados[p.id] != null).length;
+// produtos e valores liberados: o mesmo quadro na conta de e-commerce e no representante
+function painelLiberados(d, quem) {
+  const rep = quem === 'rep', dr = ui.drawer, ps = vendaveis(), n = ps.filter(p => d.liberados[p.id] != null).length;
   const porCat = state.catalogo.categorias.map(c => [c, ps.filter(p => p.cat === c.id)]).filter(x => x[1].length);
+  return `<div class="panel"><h2>Produtos e valores <span class="chip ${n ? 'ok' : rep ? '' : 'warn'}">${n ? n + ' de ' + ps.length + ' liberados' : rep ? 'tabela inteira' : '0 de ' + ps.length + ' liberados'}</span></h2>
+    <p class="note" style="margin:0 0 10px">${rep ? 'Marque o que o representante pode vender e defina o valor de cada item. Ele vê só estes produtos, por estes valores, no catálogo e nos orçamentos; no orçamento pode cobrar mais do cliente, nunca menos. Sem nenhum produto marcado, ele usa a Tabela de preços inteira da JCN.' : 'Marque o que a loja pode comprar e defina o valor de cada item. O que não estiver marcado não aparece para ela.'} Nos fogões com duas grelhas, cada grelha é um código: libere uma ou as duas.</p>
+    <div class="bar"><label class="field inl"><span>Desconto sobre a tabela JCN, em %</span><input id="ctDesc" class="inp" style="width:5.2rem" type="number" min="0" max="90" step="0.5" inputmode="decimal" data-chg="conta-desc" value="${esc(dr.desc)}"></label></div>
+    <div class="bar"><button class="btn ghost sm" data-act="lib-todos">Liberar todos pela tabela</button><button class="btn ghost sm" data-act="lib-colors">Só a Linha Colors</button><button class="btn ghost sm" data-act="lib-limpar">Limpar</button></div>
+    ${(() => { const fg = ps.filter(p => d.liberados[p.id] != null && (p.fornos || []).length); return fg.length && !fg.some(p => p.fornos.some(id => d.liberados[id] != null))
+      ? `<p class="note" id="avisoForno" style="margin:0 0 10px">${rep ? 'Este representante tem fogões que aceitam forno, mas nenhum forno avulso liberado, então ele não verá a opção de forno.' : 'Esta loja tem fogões que aceitam forno, mas nenhum forno avulso liberado, então ela não verá a opção de forno.'} Para oferecer, libere a categoria Fornos avulsos.</p>` : ''; })()}
+    <div class="tbl-wrap"><table class="tbl lib" style="min-width:0"><thead><tr><th><span class="sr">Liberar</span></th><th>Produto</th><th class="num">Tabela JCN</th><th class="num">Valor para ${rep ? 'o representante' : 'a loja'} (R$)</th></tr></thead><tbody>
+    ${porCat.map(([c, lista]) => `<tr class="grp"><th colspan="4" scope="colgroup"><span>${esc(c.nome)}</span><button class="btn ghost sm" data-act="lib-cat" data-id="${esc(c.id)}">Liberar a categoria</button></th></tr>` + lista.map(p => { const on = d.liberados[p.id] != null; return `<tr>
+      <td><input type="checkbox" id="lb-${esc(p.id)}" data-act="lib" data-id="${esc(p.id)}" ${on ? 'checked' : ''} aria-label="Liberar ${esc(rotulo(p))}"></td>
+      <td><label for="lb-${esc(p.id)}"><b>${esc(p.nome)}</b><br><span class="note">${p.grelha ? '' : `<i class="sw" style="background:${esc(p.hex)}"></i>`}${esc(detalhe(p))}${p.codigo ? ' · ' + esc(p.codigo) : ''}</span></label></td>
+      <td class="num note">${precoTxt(p.preco)}</td>
+      <td class="num"><input class="inp preco" id="pv-${esc(p.id)}" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Valor de ${esc(rotulo(p))} para ${rep ? 'o representante' : 'a loja'}" data-f="liberados.${esc(p.id)}" data-num value="${on ? esc(d.liberados[p.id]) : ''}" ${on ? '' : 'disabled'}></td></tr>`; }).join('')).join('')}
+    </tbody></table></div></div>`;
+}
+function dConta(d) {
+  const nova = !user(d.id);
   return `<h2 class="dt">${nova ? 'Nova conta e-commerce' : 'Editar ' + esc(d.nome)}</h2>
   <div class="rows">
     <div class="grid2"><label class="field"><span>Nome da loja</span><input id="ctNome" data-f="nome" value="${esc(d.nome)}"></label><label class="field"><span>CNPJ ou CPF</span><input id="ctDoc" data-f="doc" inputmode="numeric" value="${esc(d.doc)}"></label></div>
@@ -77,19 +94,7 @@ function dConta(d) {
       <label class="field"><span>${nova || !d.senha ? 'Senha' : 'Nova senha'}</span><input id="ctSenha" data-f="senhaNova" autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(d.senhaNova)}" placeholder="${nova || !d.senha ? 'mínimo de 8 caracteres' : 'em branco mantém a atual'}"></label></div>
     <div class="bar" style="margin:10px 0 0"><button class="btn ghost sm" data-act="conta-gerar">Gerar senha</button>
       <span class="note">${!nova && !d.senha ? 'Conta de demonstração: sem senha ela entra direto. Ao definir uma senha, passa a exigi-la.' : 'Depois de salvar, a tela mostra o login e a senha para você enviar à loja.'}</span></div></div>
-  <div class="panel"><h2>Produtos e valores <span class="chip ${n ? 'ok' : 'warn'}">${n} de ${ps.length} liberados</span></h2>
-    <p class="note" style="margin:0 0 10px">Marque o que a loja pode comprar e defina o valor de cada item. O que não estiver marcado não aparece para ela. Nos fogões com duas grelhas, cada grelha é um código: libere uma ou as duas.</p>
-    <div class="bar"><label class="field inl"><span>Desconto sobre a tabela JCN, em %</span><input id="ctDesc" class="inp" style="width:5.2rem" type="number" min="0" max="90" step="0.5" inputmode="decimal" data-chg="conta-desc" value="${esc(dr.desc)}"></label></div>
-    <div class="bar"><button class="btn ghost sm" data-act="lib-todos">Liberar todos pela tabela</button><button class="btn ghost sm" data-act="lib-colors">Só a Linha Colors</button><button class="btn ghost sm" data-act="lib-limpar">Limpar</button></div>
-    ${(() => { const fg = ps.filter(p => d.liberados[p.id] != null && (p.fornos || []).length); return fg.length && !fg.some(p => p.fornos.some(id => d.liberados[id] != null))
-      ? `<p class="note" id="avisoForno" style="margin:0 0 10px">Esta loja tem fogões que aceitam forno, mas nenhum forno avulso liberado, então ela não verá a opção de forno. Para oferecer, libere a categoria Fornos avulsos.</p>` : ''; })()}
-    <div class="tbl-wrap"><table class="tbl lib" style="min-width:0"><thead><tr><th><span class="sr">Liberar</span></th><th>Produto</th><th class="num">Tabela JCN</th><th class="num">Valor para a loja (R$)</th></tr></thead><tbody>
-    ${porCat.map(([c, lista]) => `<tr class="grp"><th colspan="4" scope="colgroup"><span>${esc(c.nome)}</span><button class="btn ghost sm" data-act="lib-cat" data-id="${esc(c.id)}">Liberar a categoria</button></th></tr>` + lista.map(p => { const on = d.liberados[p.id] != null; return `<tr>
-      <td><input type="checkbox" id="lb-${esc(p.id)}" data-act="lib" data-id="${esc(p.id)}" ${on ? 'checked' : ''} aria-label="Liberar ${esc(rotulo(p))}"></td>
-      <td><label for="lb-${esc(p.id)}"><b>${esc(p.nome)}</b><br><span class="note">${p.grelha ? '' : `<i class="sw" style="background:${esc(p.hex)}"></i>`}${esc(detalhe(p))}${p.codigo ? ' · ' + esc(p.codigo) : ''}</span></label></td>
-      <td class="num note">${precoTxt(p.preco)}</td>
-      <td class="num"><input class="inp preco" id="pv-${esc(p.id)}" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Valor de ${esc(rotulo(p))} para a loja" data-f="liberados.${esc(p.id)}" data-num value="${on ? esc(d.liberados[p.id]) : ''}" ${on ? '' : 'disabled'}></td></tr>`; }).join('')).join('')}
-    </tbody></table></div></div>
+  ${painelLiberados(d, 'loja')}
   <label class="check"><input type="checkbox" id="ctAtivo" data-f="ativo" ${d.ativo ? 'checked' : ''}>Conta ativa (pode entrar e fazer pedidos)</label>
   <div class="foot"><button class="btn" data-act="salvar-conta">Salvar conta</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
 }

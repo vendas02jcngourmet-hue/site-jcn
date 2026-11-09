@@ -557,7 +557,7 @@ function modelos(lista) { const m = new Map(); lista.forEach(x => { const p = x.
 // (na loja, só os que o administrador liberou, pelo valor da conta).
 function fornosDe(p, ctx, u) {
   const lib = ctx === 'loja' ? ((u || {}).liberados || {}) : null;
-  return (p.fornos || []).map(prod).filter(f => f && f.ativo && (cat(f.cat) || {}).ativa && (lib ? lib[f.id] > 0 : ctx === 'site' ? precoSite(f) > 0 : f.preco > 0)).map(f => ({ p: f, preco: lib ? lib[f.id] : ctx === 'site' ? precoSite(f) : f.preco }));
+  return (p.fornos || []).map(prod).filter(f => f && f.ativo && !f.fora && (cat(f.cat) || {}).ativa && (lib ? lib[f.id] > 0 : ctx === 'site' ? precoSite(f) > 0 : f.preco > 0)).map(f => ({ p: f, preco: lib ? lib[f.id] : ctx === 'site' ? precoSite(f) : f.preco }));
 }
 const nomeForno = (f, curto) => f.nome.replace(/^Forno avulso\s+/i, '').replace(curto ? /\s*\(Perfil \d\)$/ : /^$/, '').replace(/^./, c => c.toUpperCase());   // na ficha do fogão o Perfil já está no título
 const rotuloOpcoes = (varias, forno) => varias ? (forno ? 'Escolher grelha e forno' : 'Escolher a grelha') : 'Adicionar, com ou sem forno';
@@ -607,7 +607,7 @@ const BOLETO_DIAS = [1, 2, 3, 4, 5, 15, 28, 30, 45, 60, 75, 90];
 const BOLETO = { pendente: ['Boleto aguardando o financeiro', 'warn'], aprovado: ['Boleto aprovado', 'ok'], recusado: ['Boleto recusado', 'bad'] };
 const ehBoleto = p => !!(p.pagamento && p.pagamento.forma === 'boleto');
 const pagoOk = p => ehBoleto(p) ? p.pagamento.status === 'aprovado' : p.pix.status === 'verificado';
-const paraConferir = p => ehBoleto(p) ? p.pagamento.status === 'pendente' : p.pix.status === 'analise';
+const paraConferir = p => !p.cancelado && (ehBoleto(p) ? p.pagamento.status === 'pendente' : p.pix.status === 'analise');
 const chipPag = p => chip(ehBoleto(p) ? BOLETO[p.pagamento.status] : PIX[p.pix.status]);
 const somaDias = (iso, d) => { const t = new Date(iso + 'T12:00:00'); t.setDate(t.getDate() + d); return t.toISOString().slice(0, 10); };
 const hojeISO = () => { const t = new Date(); return new Date(t.getTime() - t.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
@@ -808,7 +808,7 @@ function dLinha(d) {
 /* ---------- vendas: catálogo pela tabela única, com a ficha do produto ---------- */
 const fotoDe = (p, alt = '') => p.fotos[0] ? `<img loading="lazy" src="${src(p.fotos[0])}" alt="${esc(alt)}">` : '<span class="note">Sem foto</span>';
 function vCatalogo(u) {
-  const todos = state.catalogo.produtos.filter(p => p.ativo && (cat(p.cat) || {}).ativa), cats = state.catalogo.categorias.filter(c => todos.some(p => p.cat === c.id));
+  const todos = vendaveis(), cats = state.catalogo.categorias.filter(c => todos.some(p => p.cat === c.id));
   if (!cats.some(c => c.id === ui.catVenda)) ui.catVenda = '';
   const q = (ui.buscaVenda || '').trim().toLowerCase();
   const achados0 = todos.filter(p => (!ui.catVenda || p.cat === ui.catVenda) && (!q || (p.nome + ' ' + p.codigo + ' ' + detalhe(p)).toLowerCase().includes(q)));
@@ -877,7 +877,7 @@ function dFicha(dr, u) {
 /* ---------- vendas: lançar pedido ---------- */
 function vNovoPedido(u) {
   const d = ui.pedido || (ui.pedido = novoPedidoVazio());
-  const ativos = state.catalogo.produtos.filter(p => p.ativo);
+  const ativos = state.catalogo.produtos.filter(p => p.ativo && !p.fora);
   let total = 0;
   const linhas = d.itens.map((it, i) => { const p = prod(it.produto); const pr = p ? p.preco : 0; total += pr * (it.qtd || 0);
     return `<div class="row-line" style="grid-template-columns:minmax(0,2.2fr) 76px minmax(0,1fr) auto">
@@ -921,19 +921,20 @@ function arqLi(id, remAct, extra = '') {
 function vPedidos(u) {
   const lj = u.papel === 'ecommerce', f = ehFin(u) ? (ui.filtroPed || '') : '';
   const meus = state.pedidos.filter(p => ehFin(u) || p.vendedor === u.id || (u.papel === 'vendedor' && respDe(p) === u.id));   // o vendedor acompanha os pedidos das lojas dele
-  const lista = meus.filter(p => !f || (f === 'ecommerce' || f === 'site' ? p.origem === f : f === 'analise' ? paraConferir(p) : f === 'boleto' ? ehBoleto(p) : p.origem !== 'ecommerce' && p.origem !== 'site')).sort((a, b) => b.numero - a.numero);
+  const lista = meus.filter(p => !f || (f === 'cancelados' ? !!p.cancelado : f === 'ecommerce' || f === 'site' ? p.origem === f : f === 'analise' ? paraConferir(p) : f === 'boleto' ? ehBoleto(p) : p.origem !== 'ecommerce' && p.origem !== 'site')).sort((a, b) => b.numero - a.numero);
   const vazio = lj ? 'Nenhum pedido ainda. Escolha os produtos, monte o carrinho e envie o comprovante do PIX.' : f ? 'Nenhum pedido neste filtro.' : 'Nenhum pedido ainda. Use "Lançar pedido" para registrar a primeira venda.';
   return `<h1>${lj || u.papel === 'representante' ? 'Meus pedidos' : 'Pedidos'}</h1><p class="sub">${ehFin(u) ? 'Confira os comprovantes de PIX, aprove os boletos, baixe as etiquetas enviadas pelas lojas e libere a expedição.' : lj ? 'Acompanhe a conferência do PIX e a expedição. Abra um pedido para anexar mais etiquetas ou trocar o comprovante.' : u.papel === 'representante' ? 'Os pedidos que você lançou. Abra um pedido para acompanhar o pagamento e o envio.' : 'Seus pedidos e os das lojas de e-commerce que você atende. Abra um pedido para anexar o comprovante do PIX, ver a aprovação do boleto ou baixar a etiqueta.'}</p>
-  ${ehFin(u) ? `<div class="bar"><label class="sr" for="fp">Filtrar pedidos</label><select id="fp" class="inp" style="width:auto" data-chg="filtro-ped">${[['', 'Todos os pedidos'], ['analise', 'Pagamentos para conferir'], ['boleto', 'Boleto parcelado'], ['site', 'Loja do site (consumidor final)'], ['ecommerce', 'Vindos do e-commerce'], ['interno', 'Lançados por vendedores']].map(([k, t]) => `<option value="${k}" ${k === f ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` : ''}
+  ${ehFin(u) ? `<div class="bar"><label class="sr" for="fp">Filtrar pedidos</label><select id="fp" class="inp" style="width:auto" data-chg="filtro-ped">${[['', 'Todos os pedidos'], ['analise', 'Pagamentos para conferir'], ['boleto', 'Boleto parcelado'], ['site', 'Loja do site (consumidor final)'], ['ecommerce', 'Vindos do e-commerce'], ['interno', 'Lançados por vendedores'], ['cancelados', 'Cancelados']].map(([k, t]) => `<option value="${k}" ${k === f ? 'selected' : ''}>${t}</option>`).join('')}</select></div>` : ''}
   ${lista.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nº</th><th>Data</th>${lj ? '<th>Itens</th>' : '<th>Cliente</th>'}${ehFin(u) ? '<th>Origem</th>' : ''}<th class="num">Total</th><th>Pagamento</th><th>Envio</th><th>Etiquetas</th><th></th></tr></thead><tbody>
-  ${lista.map(p => `<tr><td><b>${p.numero}</b></td><td>${dataBR(p.criado)}</td>${lj ? `<td>${p.itens.map(i => `${i.qtd} × ${esc(i.nome)}`).join('<br>')}</td>` : `<td>${esc(p.cliente.nome)}<br><span class="note">${esc(p.cliente.cidade)}</span>${u.papel === 'vendedor' && p.vendedor !== u.id ? '<br>' + chip(['E-commerce', 'info']) : ''}</td>`}
+  ${lista.map(p => `<tr${p.cancelado ? ' class="cancelado"' : ''}><td><b>${p.numero}</b></td><td>${dataBR(p.criado)}</td>${lj ? `<td>${p.itens.map(i => `${i.qtd} × ${esc(i.nome)}`).join('<br>')}</td>` : `<td>${esc(p.cliente.nome)}<br><span class="note">${esc(p.cliente.cidade)}</span>${u.papel === 'vendedor' && p.vendedor !== u.id ? '<br>' + chip(['E-commerce', 'info']) : ''}</td>`}
     ${ehFin(u) ? `<td>${p.origem === 'ecommerce' ? chip(['E-commerce', 'info']) : p.origem === 'site' ? chip(['Loja do site', 'ok']) : esc((user(p.vendedor) || {}).nome || '')}</td>` : ''}<td class="num">${brl(totalPedido(p))}</td>
-    <td>${chipPag(p)}</td><td>${chip(ENVIO[p.envio])}</td><td>${p.etiquetas.length || '<span class="note">nenhuma</span>'}</td>
+    <td>${p.cancelado ? chip(['Cancelado', 'bad']) : chipPag(p)}</td><td>${p.cancelado ? '<span class="note">—</span>' : chip(ENVIO[p.envio])}</td><td>${p.etiquetas.length || '<span class="note">nenhuma</span>'}</td>
     <td><button class="btn ghost sm" data-act="abrir-pedido" data-id="${esc(p.id)}">Abrir</button></td></tr>`).join('')}
   </tbody></table></div>` : `<div class="empty">${vazio}</div>`}`;
 }
 function dPedido(p, u) {
-  const adm = u.papel === 'admin', fin = ehFin(u), lj = p.origem === 'ecommerce', dono = p.vendedor === u.id, comp = p.pix.arquivo && state.arquivos[p.pix.arquivo];
+  const canc = p.cancelado, admin = u.papel === 'admin';                         // pedido cancelado fica só para consulta, até desfazer
+  const adm = admin && !canc, fin = ehFin(u) && !canc, lj = p.origem === 'ecommerce', dono = p.vendedor === u.id && !canc, comp = p.pix.arquivo && state.arquivos[p.pix.arquivo];
   const et = ['aguardando', 'expedicao', 'enviado'], ix = et.indexOf(p.envio), unidades = p.itens.reduce((s, i) => s + i.qtd, 0);
   const pode = adm || dono, bol = ehBoleto(p), pg = p.pagamento || {};          // o vendedor responsável por uma loja só acompanha
   const repr = u.papel === 'representante';                                       // representante só faz o pedido: depois, só envia o comprovante que faltar
@@ -943,6 +944,7 @@ function dPedido(p, u) {
   ${p.origem === 'site' ? `<div class="panel"><h2>Entrega e contato</h2><p style="margin:0">${esc(enderecoTxt(p.cliente.endereco))}</p>
     <p class="note" style="margin:6px 0 0">${esc([p.cliente.fone, p.cliente.email].filter(Boolean).join(' · '))}</p>
     <p class="note" style="margin:6px 0 0">O frete não entra no total: combine com o cliente antes de enviar.</p></div>` : ''}
+  ${canc ? `<div class="aviso-canc" role="status"><b>Pedido cancelado</b> em ${dataBR(canc.em)}${canc.por && user(canc.por) ? ' por ' + esc(user(canc.por).nome) : ''}.${canc.motivo ? ' Motivo: ' + esc(canc.motivo) + '.' : ''} Ele não entra nas contas do financeiro e não segue para a expedição.</div>` : ''}
   <div class="tbl-wrap" style="margin-bottom:16px"><table class="tbl" style="min-width:0"><thead><tr><th>Item</th><th class="num">Qtd.</th><th class="num">Unitário</th><th class="num">Subtotal</th></tr></thead><tbody>
     ${p.itens.map(i => `<tr><td>${esc(i.nome)}${i.codigo ? `<br><span class="note">${esc(i.codigo)}</span>` : ''}</td><td class="num">${i.qtd}</td><td class="num">${brl(i.preco)}</td><td class="num">${brl(i.qtd * i.preco)}</td></tr>`).join('')}
     <tr><td colspan="3" class="num"><b>Total</b></td><td class="num"><b>${brl(totalPedido(p))}</b></td></tr></tbody></table></div>
@@ -970,27 +972,51 @@ function dPedido(p, u) {
     ${adm ? `<div class="bar" style="margin:0"><button class="btn sm" data-act="envio" data-s="expedicao" ${pagoOk(p) && p.envio === 'aguardando' ? '' : 'disabled'}>Liberar para expedição</button>
       <button class="btn sm" data-act="envio" data-s="enviado" ${p.envio === 'expedicao' && p.etiquetas.length ? '' : 'disabled'}>Marcar como enviado</button></div>
       <p class="note" style="margin:8px 0 0">A expedição só é liberada com o ${bol ? 'boleto aprovado' : 'PIX verificado'}, e o envio só é marcado com uma etiqueta anexada.</p>` : ''}</div>
+  ${admin ? `<div class="panel" id="painelCancelar"><h2>Cancelar ou apagar</h2>
+    ${canc ? `<p class="note" style="margin:0 0 10px">Desfazendo o cancelamento, o pedido volta a valer, do jeito que estava.</p>
+      <div class="bar" style="margin:0"><button class="btn sm" data-act="ped-descancelar">Desfazer cancelamento</button></div>`
+    : `<label class="field"><span>Motivo do cancelamento (opcional)</span><input id="pcMotivo" maxlength="300" placeholder="ex.: cliente desistiu"></label>
+      <div class="bar" style="margin:10px 0 0"><button class="btn danger sm" data-act="ped-cancelar" data-confirm="Confirmar cancelamento">Cancelar pedido</button></div>
+      <p class="note" style="margin:8px 0 0">O pedido cancelado continua na lista, marcado, e sai das contas do financeiro. Dá para desfazer.</p>`}
+    <div class="bar" style="margin:14px 0 0"><button class="btn danger sm" data-act="ped-apagar" data-confirm="Confirmar: apagar de vez">Apagar pedido</button></div>
+    <p class="note" style="margin:8px 0 0">Apagar tira o pedido do sistema, com os itens, o comprovante e as etiquetas. Não tem volta.${/^Orçamento nº/.test(p.obs || '') ? ' O orçamento de onde ele veio volta para Em aberto.' : ''}</p></div>` : ''}
   <div class="foot"><button class="btn ghost" data-act="fechar">Fechar</button></div>`;
 }
 
 /* ---------- usuários ---------- */
 function vUsuarios() {
-  return `<h1>Usuários</h1><p class="sub">Quem entra em cada portal. O perfil define o que a pessoa vê: administradores gerenciam tudo; vendedores lançam pedidos e cuidam das contas de e-commerce deles; representantes só lançam pedidos; lojas veem só os próprios pedidos.</p>
+  const eux = eu();
+  return `<h1>Usuários</h1><p class="sub">Quem entra em cada portal. O perfil define o que a pessoa vê: administradores gerenciam tudo; vendedores fazem orçamentos e cuidam das contas de e-commerce deles; representantes fazem orçamentos, com os produtos e valores que você escolher; lojas veem só os próprios pedidos. Use Editar para mudar nome, e-mail, perfil, telefone ou senha.</p>
   ${ui.acesso && ui.acesso.usuario ? `<div class="acesso" role="status"><h2>Acesso de ${esc(ui.acesso.nome)}</h2>
     <p>Envie estes dados para a pessoa e peça que ela troque a senha no primeiro acesso (botão "Trocar senha"). A senha não aparece de novo depois que você sair desta tela.</p>
     <dl id="acDados"><div><dt>E-mail ou login</dt><dd>${esc(ui.acesso.login)}</dd></div><div><dt>Senha</dt><dd>${esc(ui.acesso.senha)}</dd></div></dl></div>` : ''}
+  <div class="bar"><span class="grow"></span><button class="btn" data-act="user-novo">Novo usuário</button></div>
   <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Nome</th><th>E-mail ou login</th><th>Perfil</th><th>Empresa</th><th>Ativo</th><th></th></tr></thead><tbody>
-  ${state.usuarios.map(u => `<tr><td><b>${esc(u.nome)}</b></td><td>${esc(u.papel === 'ecommerce' ? u.login : u.email || '')}</td><td>${chip([PAPEIS[u.papel], u.papel === 'admin' ? 'info' : ''])}</td><td>${esc(u.empresa)}</td>
+  ${state.usuarios.map(u => { const nl = u.papel === 'representante' ? Object.keys(u.liberados || {}).length : 0; return `<tr><td><b>${esc(u.nome)}</b>${u.contato ? `<br><span class="note">${esc(u.contato)}</span>` : ''}</td><td>${esc(u.papel === 'ecommerce' ? u.login : u.email || '')}</td>
+    <td>${chip([PAPEIS[u.papel], u.papel === 'admin' ? 'info' : ''])}${u.papel === 'representante' ? `<br><span class="note">${nl ? nl + (nl > 1 ? ' produtos liberados' : ' produto liberado') : 'tabela inteira'}</span>` : ''}</td><td>${esc(u.empresa)}</td>
     <td><input type="checkbox" class="toggle" data-act="toggle-user" data-id="${esc(u.id)}" ${u.ativo ? 'checked' : ''} ${u.id === sessao ? 'disabled' : ''} aria-label="${esc(u.nome)} ativo"></td>
-    <td>${u.id === sessao ? '' : `<button class="btn ghost sm" data-act="user-senha" data-id="${esc(u.id)}" data-confirm="Confirmar: gerar senha nova">Nova senha</button>`}</td></tr>`).join('')}
+    <td><div class="bar" style="margin:0;flex-wrap:nowrap"><button class="btn ghost sm" data-act="user-editar" data-id="${esc(u.id)}" aria-label="Editar ${esc(u.nome)}">Editar</button>
+    ${u.id === sessao ? '' : `<button class="btn ghost sm" data-act="user-senha" data-id="${esc(u.id)}" data-confirm="Confirmar: gerar senha nova">Nova senha</button>`}</div></td></tr>`; }).join('')}
   </tbody></table></div>
-  <div class="panel" style="margin-top:16px"><h2>Novo usuário</h2><div class="grid2">
-    <label class="field"><span>Nome</span><input id="nuNome"></label><label class="field"><span>E-mail</span><input id="nuEmail" type="email"></label>
-    <label class="field"><span>Perfil</span><select id="nuPapel">${Object.entries(PAPEIS).filter(([k]) => k !== 'ecommerce').map(([k, t]) => `<option value="${k}">${t}</option>`).join('')}</select></label>
-    <label class="field"><span>Empresa</span><input id="nuEmp" value="JCN Gourmet"></label>
-    <label class="field"><span>Senha inicial</span><input id="nuSenha" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="mínimo de 8 caracteres"></label></div>
-    <div class="bar" style="margin:10px 0 0"><button class="btn sm" data-act="user-add">Criar usuário</button><button class="btn ghost sm" data-act="user-gerar">Gerar senha</button></div>
-    <p class="note" style="margin:8px 0 0">Você define a senha inicial e passa para a pessoa, que troca no primeiro acesso. As lojas de e-commerce são criadas em Contas e-commerce, com login, senha e produtos liberados.</p></div>`;
+  <p class="note" style="margin:10px 0 0">As lojas de e-commerce são criadas em Contas e-commerce, com login, senha e produtos liberados. O Editar de uma loja abre a conta dela.</p>`;
+}
+// criar e editar um usuário da equipe; no representante, os produtos e valores dele (igual à conta de e-commerce)
+function dUsuario(d) {
+  const novo = !d.id, euMesmo = d.id === sessao, rep = d.papel === 'representante';
+  return `<h2 class="dt">${novo ? 'Novo usuário' : 'Editar ' + esc(d.nome)}</h2>
+  <div class="rows">
+    <div class="grid2"><label class="field"><span>Nome</span><input id="nuNome" data-f="nome" value="${esc(d.nome)}"></label>
+      <label class="field"><span>E-mail (é o login)</span><input id="nuEmail" type="email" data-f="email" autocapitalize="none" spellcheck="false" value="${esc(d.email)}"></label></div>
+    <div class="grid2"><label class="field"><span>Perfil</span><select id="nuPapel" data-f="papel" data-chg="usr-papel" ${euMesmo ? 'disabled' : ''}>${Object.entries(PAPEIS).filter(([k]) => k !== 'ecommerce').map(([k, t]) => `<option value="${k}" ${k === d.papel ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+      <label class="field"><span>Empresa</span><input id="nuEmp" data-f="empresa" value="${esc(d.empresa)}"></label></div>
+    <div class="grid2"><label class="field"><span>Telefone ou WhatsApp</span><input id="nuContato" data-f="contato" inputmode="tel" value="${esc(d.contato)}"></label>
+      <label class="field"><span>${novo ? 'Senha inicial' : 'Nova senha'}</span><input id="nuSenha" data-f="senhaNova" autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(d.senhaNova)}" placeholder="${novo ? 'mínimo de 8 caracteres' : 'em branco mantém a atual'}"></label></div>
+    <div class="bar" style="margin:0"><button class="btn ghost sm" data-act="user-gerar">Gerar senha</button>
+      <span class="note">${novo ? 'Você define a senha inicial e passa para a pessoa, que troca no primeiro acesso.' : euMesmo ? 'Esta é a sua conta: o perfil e o "ativo" não mudam por aqui.' : 'Trocando o e-mail, a pessoa passa a entrar com o e-mail novo.'}</span></div>
+  </div>
+  ${rep ? painelLiberados(d, 'rep') : ''}
+  ${euMesmo ? '' : `<label class="check"><input type="checkbox" id="nuAtivo" data-f="ativo" ${d.ativo ? 'checked' : ''}>Usuário ativo (pode entrar no site)</label>`}
+  <div class="foot"><button class="btn" data-act="user-add">${novo ? 'Criar usuário' : 'Salvar alterações'}</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
 }
 
 /* ---------- gaveta lateral e visualizador ---------- */
@@ -1002,6 +1028,7 @@ function renderDrawer() {
   if (dr.tipo === 'pedido') { const p = state.pedidos.find(x => x.id === dr.id); if (!p) return fecharDrawer(); html = dPedido(p, u); }
   if (dr.tipo === 'linha') html = dLinha(dr.draft);
   if (dr.tipo === 'conta') html = dConta(dr.draft);
+  if (dr.tipo === 'usuario') html = dUsuario(dr.draft);
   if (dr.tipo === 'ficha') html = dFicha(dr, u);
   if (dr.tipo === 'sacola') html = dSacola();
   if (dr.tipo === 'senha') html = `<h2 class="dt">Trocar a minha senha</h2><div class="rows">
@@ -1189,16 +1216,57 @@ const acts = {
   'envio': e => { const p = pedidoAberto(); p.envio = e.dataset.s; salvar('pedidos'); refresh(); toast(e.dataset.s === 'enviado' ? 'Pedido marcado como enviado.' : 'Pedido liberado para expedição.'); },
   // usuários
   'toggle-user': e => { const eux = eu(), x = user(e.dataset.id); if (!x || !(eux.papel === 'admin' || (eux.papel === 'rh_admin' && ehRH(x.papel)) || (eux.papel === 'vendedor' && x.papel === 'ecommerce' && x.vendedorResp === eux.id))) { e.checked = !e.checked; return; } x.ativo = e.checked; salvar('usuarios'); },
-  'user-gerar': () => { $('#nuSenha').value = gerarSenha(); },
+  'user-novo': () => { if (eu().papel !== 'admin') return; ui.acesso = null; ui.drawer = { tipo: 'usuario', desc: 0, draft: { id: '', nome: '', email: '', papel: 'vendedor', empresa: 'JCN Gourmet', contato: '', senhaNova: '', ativo: true, liberados: {} } }; renderDrawer(); },
+  'user-editar': e => {
+    const x = user(e.dataset.id); if (eu().papel !== 'admin' || !x) return;
+    if (x.papel === 'ecommerce') return acts['editar-conta'](e);
+    ui.acesso = null; ui.drawer = { tipo: 'usuario', desc: 0, draft: { id: x.id, nome: x.nome, email: x.email || '', papel: x.papel, empresa: x.empresa || '', contato: x.contato || '', senhaNova: '', ativo: !!x.ativo, liberados: { ...(x.liberados || {}) } } }; renderDrawer();
+  },
+  'user-gerar': () => { if (!ui.drawer || ui.drawer.tipo !== 'usuario') return; ui.drawer.draft.senhaNova = gerarSenha(); renderDrawer(); },
   'user-add': async () => {
-    if (eu().papel !== 'admin' || ui.ocupado) return;
-    const nome = $('#nuNome').value.trim(), email = $('#nuEmail').value.trim().toLowerCase(), papel = $('#nuPapel').value, senha = $('#nuSenha').value, empresa = $('#nuEmp').value.trim();
+    if (eu().papel !== 'admin' || ui.ocupado || !ui.drawer || ui.drawer.tipo !== 'usuario') return;
+    const d = ui.drawer.draft, antigo = d.id ? user(d.id) : null, euMesmo = !!antigo && antigo.id === sessao;
+    const nome = (d.nome || '').trim(), email = (d.email || '').trim().toLowerCase(), papel = euMesmo ? antigo.papel : d.papel, senha = d.senhaNova || '';
     if (!nome || !/^\S+@\S+\.\S+$/.test(email)) return toast('Informe nome e um e-mail válido.');
-    if (senha.length < 8) return toast('Defina uma senha inicial com pelo menos 8 caracteres, ou use "Gerar senha".');
-    if (state.usuarios.some(u => (u.email || '').toLowerCase() === email)) return toast('Já existe um usuário com este e-mail.');
+    if (!PAPEIS[papel] || papel === 'ecommerce') return toast('Escolha o perfil.');
+    if (!antigo && senha.length < 8) return toast('Defina uma senha inicial com pelo menos 8 caracteres, ou use "Gerar senha".');
+    if (antigo && senha && senha.length < 8) return toast('A senha nova precisa ter pelo menos 8 caracteres. Deixe em branco para manter a atual.');
+    if (state.usuarios.some(u => u.id !== d.id && (u.email || '').toLowerCase() === email)) return toast('Já existe um usuário com este e-mail.');
+    if (antigo && antigo.papel === 'vendedor' && papel !== 'vendedor' && lojas().some(l => l.vendedorResp === antigo.id)) return toast('Este vendedor tem contas de e-commerce. Passe as contas para outro vendedor, em Contas e-commerce, antes de mudar o perfil.');
+    const liberados = {};
+    if (papel === 'representante') for (const p of state.catalogo.produtos) {
+      if (d.liberados[p.id] == null) continue;
+      const v = dinheiro(d.liberados[p.id]);
+      if (!(v > 0)) return toast('Informe o valor de ' + p.nome + ' para o representante, ou desmarque o produto.');
+      liberados[p.id] = v;
+    }
+    const u = { nome, email, papel, empresa: (d.empresa || '').trim(), contato: (d.contato || '').trim(), ativo: euMesmo || !!d.ativo, liberados };
+    ui.ocupado = true; const bt = $('[data-act=user-add]'); if (bt) { bt.disabled = true; bt.textContent = 'Gravando…'; }
+    try { await API.salvarUsuario(u, senha, antigo); }
+    catch (err) { ui.ocupado = false; if (bt) { bt.disabled = false; bt.textContent = antigo ? 'Salvar alterações' : 'Criar usuário'; } return toast(msgErro(err)); }
+    ui.ocupado = false; ui.acesso = senha ? { nome, login: email, senha, usuario: true } : null;
+    fecharDrawer(); renderApp(); scrollTo(0, 0);
+    const nl = Object.keys(liberados).length;
+    toast((antigo ? 'Alterações salvas.' : 'Usuário criado. Envie o e-mail e a senha para a pessoa.') + (papel === 'representante' ? nl ? ` O representante vê ${nl} ${nl > 1 ? 'produtos' : 'produto'}, pelos valores definidos.` : ' O representante usa a Tabela de preços inteira.' : ''));
+  },
+  // pedido: cancelar, desfazer e apagar (só a administração)
+  'ped-cancelar': async () => {
+    const p = pedidoAberto(); if (!p || eu().papel !== 'admin' || ui.ocupado) return;
     ui.ocupado = true;
-    try { await API.criarAcesso({ email, senha, perfil: { nome, papel, empresa: empresa || null, ativo: true } }); ui.acesso = { nome, login: email, senha, usuario: true }; renderApp(); toast('Usuário criado. Envie o e-mail e a senha para a pessoa.'); }
-    catch (err) { toast(msgErro(err)); } finally { ui.ocupado = false; }
+    try { await API.cancelarPedido(p.id, (($('#pcMotivo') || {}).value || '').trim()); toast(`Pedido nº ${p.numero} cancelado.`); } catch (err) { toast(msgErro(err)); } finally { ui.ocupado = false; }
+    refresh();
+  },
+  'ped-descancelar': async () => {
+    const p = pedidoAberto(); if (!p || eu().papel !== 'admin' || ui.ocupado) return;
+    ui.ocupado = true;
+    try { await API.cancelarPedido(p.id, null); toast(`O pedido nº ${p.numero} voltou a valer.`); } catch (err) { toast(msgErro(err)); } finally { ui.ocupado = false; }
+    refresh();
+  },
+  'ped-apagar': async () => {
+    const p = pedidoAberto(); if (!p || eu().papel !== 'admin' || ui.ocupado) return;
+    ui.ocupado = true;
+    try { await API.apagarPedido(p.id); } catch (err) { ui.ocupado = false; return toast(msgErro(err)); }
+    ui.ocupado = false; fecharDrawer(); renderApp(); toast(`Pedido nº ${p.numero} apagado.`);
   },
   'user-senha': async e => {
     const id = e.dataset.id, s = gerarSenha(), u = user(id); if (eu().papel !== 'admin' || !u) return;
@@ -1210,6 +1278,7 @@ const chgs = {
   'filtro-ped': e => { ui.filtroPed = e.value; renderApp(); },
   'filtro-venda': e => { ui.catVenda = e.value; renderApp(); },
   'busca-prod': e => { ui.buscaProd = e.value; renderApp(); },
+  'usr-papel': e => { if (!ui.drawer || ui.drawer.tipo !== 'usuario') return; ui.drawer.draft.papel = e.value; renderDrawer(); const x = $('#nuPapel'); if (x) x.focus(); },
   'cat-nome': e => { const c = cat(e.dataset.id), v = e.value.trim(); if (v) { c.nome = v; salvar('catalogo'); } else e.value = c.nome; },
   'conteudo': e => { state.conteudo[e.dataset.k] = e.value; salvar('conteudo'); },
   'item-prod': e => { ui.pedido.itens[+e.dataset.i].produto = e.value; renderApp(); },
@@ -1280,7 +1349,7 @@ function gerarSenha(n = 10) {
 }
 const lojas = () => state.usuarios.filter(u => u.papel === 'ecommerce');
 const dinheiro = n => Math.round(+((Number(n) || 0) * 100).toFixed(4)) / 100;   // 676,90 × 0,95 dá 643,0549999 na conta do computador: arredonda como no papel (643,06)
-const vendaveis = () => state.catalogo.produtos.filter(p => p.ativo && (cat(p.cat) || {}).ativa);
+const vendaveis = () => state.catalogo.produtos.filter(p => p.ativo && !p.fora && (cat(p.cat) || {}).ativa);
 /* o que a loja enxerga: só o que o administrador liberou, pelo valor que ele definiu */
 function liberadosDe(u) { const l = u.liberados || {}; return vendaveis().filter(p => l[p.id] > 0).map(p => ({ p, preco: l[p.id] })); }
 function carrinho() {
@@ -1328,9 +1397,26 @@ function liberarLista(lista) {
   renderDrawer();
   if (fora) toast(`${fora} ${fora > 1 ? 'produtos ficaram' : 'produto ficou'} de fora por não ter preço na tabela. Marque e digite o valor, ou cadastre o preço em Produtos.`);
 }
-function dConta(d) {
-  const nova = !user(d.id), dr = ui.drawer, ps = vendaveis(), n = ps.filter(p => d.liberados[p.id] != null).length;
+// produtos e valores liberados: o mesmo quadro na conta de e-commerce e no representante
+function painelLiberados(d, quem) {
+  const rep = quem === 'rep', dr = ui.drawer, ps = vendaveis(), n = ps.filter(p => d.liberados[p.id] != null).length;
   const porCat = state.catalogo.categorias.map(c => [c, ps.filter(p => p.cat === c.id)]).filter(x => x[1].length);
+  return `<div class="panel"><h2>Produtos e valores <span class="chip ${n ? 'ok' : rep ? '' : 'warn'}">${n ? n + ' de ' + ps.length + ' liberados' : rep ? 'tabela inteira' : '0 de ' + ps.length + ' liberados'}</span></h2>
+    <p class="note" style="margin:0 0 10px">${rep ? 'Marque o que o representante pode vender e defina o valor de cada item. Ele vê só estes produtos, por estes valores, no catálogo e nos orçamentos; no orçamento pode cobrar mais do cliente, nunca menos. Sem nenhum produto marcado, ele usa a Tabela de preços inteira da JCN.' : 'Marque o que a loja pode comprar e defina o valor de cada item. O que não estiver marcado não aparece para ela.'} Nos fogões com duas grelhas, cada grelha é um código: libere uma ou as duas.</p>
+    <div class="bar"><label class="field inl"><span>Desconto sobre a tabela JCN, em %</span><input id="ctDesc" class="inp" style="width:5.2rem" type="number" min="0" max="90" step="0.5" inputmode="decimal" data-chg="conta-desc" value="${esc(dr.desc)}"></label></div>
+    <div class="bar"><button class="btn ghost sm" data-act="lib-todos">Liberar todos pela tabela</button><button class="btn ghost sm" data-act="lib-colors">Só a Linha Colors</button><button class="btn ghost sm" data-act="lib-limpar">Limpar</button></div>
+    ${(() => { const fg = ps.filter(p => d.liberados[p.id] != null && (p.fornos || []).length); return fg.length && !fg.some(p => p.fornos.some(id => d.liberados[id] != null))
+      ? `<p class="note" id="avisoForno" style="margin:0 0 10px">${rep ? 'Este representante tem fogões que aceitam forno, mas nenhum forno avulso liberado, então ele não verá a opção de forno.' : 'Esta loja tem fogões que aceitam forno, mas nenhum forno avulso liberado, então ela não verá a opção de forno.'} Para oferecer, libere a categoria Fornos avulsos.</p>` : ''; })()}
+    <div class="tbl-wrap"><table class="tbl lib" style="min-width:0"><thead><tr><th><span class="sr">Liberar</span></th><th>Produto</th><th class="num">Tabela JCN</th><th class="num">Valor para ${rep ? 'o representante' : 'a loja'} (R$)</th></tr></thead><tbody>
+    ${porCat.map(([c, lista]) => `<tr class="grp"><th colspan="4" scope="colgroup"><span>${esc(c.nome)}</span><button class="btn ghost sm" data-act="lib-cat" data-id="${esc(c.id)}">Liberar a categoria</button></th></tr>` + lista.map(p => { const on = d.liberados[p.id] != null; return `<tr>
+      <td><input type="checkbox" id="lb-${esc(p.id)}" data-act="lib" data-id="${esc(p.id)}" ${on ? 'checked' : ''} aria-label="Liberar ${esc(rotulo(p))}"></td>
+      <td><label for="lb-${esc(p.id)}"><b>${esc(p.nome)}</b><br><span class="note">${p.grelha ? '' : `<i class="sw" style="background:${esc(p.hex)}"></i>`}${esc(detalhe(p))}${p.codigo ? ' · ' + esc(p.codigo) : ''}</span></label></td>
+      <td class="num note">${precoTxt(p.preco)}</td>
+      <td class="num"><input class="inp preco" id="pv-${esc(p.id)}" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Valor de ${esc(rotulo(p))} para ${rep ? 'o representante' : 'a loja'}" data-f="liberados.${esc(p.id)}" data-num value="${on ? esc(d.liberados[p.id]) : ''}" ${on ? '' : 'disabled'}></td></tr>`; }).join('')).join('')}
+    </tbody></table></div></div>`;
+}
+function dConta(d) {
+  const nova = !user(d.id);
   return `<h2 class="dt">${nova ? 'Nova conta e-commerce' : 'Editar ' + esc(d.nome)}</h2>
   <div class="rows">
     <div class="grid2"><label class="field"><span>Nome da loja</span><input id="ctNome" data-f="nome" value="${esc(d.nome)}"></label><label class="field"><span>CNPJ ou CPF</span><input id="ctDoc" data-f="doc" inputmode="numeric" value="${esc(d.doc)}"></label></div>
@@ -1343,19 +1429,7 @@ function dConta(d) {
       <label class="field"><span>${nova || !d.senha ? 'Senha' : 'Nova senha'}</span><input id="ctSenha" data-f="senhaNova" autocomplete="off" autocapitalize="none" spellcheck="false" value="${esc(d.senhaNova)}" placeholder="${nova || !d.senha ? 'mínimo de 8 caracteres' : 'em branco mantém a atual'}"></label></div>
     <div class="bar" style="margin:10px 0 0"><button class="btn ghost sm" data-act="conta-gerar">Gerar senha</button>
       <span class="note">${!nova && !d.senha ? 'Conta de demonstração: sem senha ela entra direto. Ao definir uma senha, passa a exigi-la.' : 'Depois de salvar, a tela mostra o login e a senha para você enviar à loja.'}</span></div></div>
-  <div class="panel"><h2>Produtos e valores <span class="chip ${n ? 'ok' : 'warn'}">${n} de ${ps.length} liberados</span></h2>
-    <p class="note" style="margin:0 0 10px">Marque o que a loja pode comprar e defina o valor de cada item. O que não estiver marcado não aparece para ela. Nos fogões com duas grelhas, cada grelha é um código: libere uma ou as duas.</p>
-    <div class="bar"><label class="field inl"><span>Desconto sobre a tabela JCN, em %</span><input id="ctDesc" class="inp" style="width:5.2rem" type="number" min="0" max="90" step="0.5" inputmode="decimal" data-chg="conta-desc" value="${esc(dr.desc)}"></label></div>
-    <div class="bar"><button class="btn ghost sm" data-act="lib-todos">Liberar todos pela tabela</button><button class="btn ghost sm" data-act="lib-colors">Só a Linha Colors</button><button class="btn ghost sm" data-act="lib-limpar">Limpar</button></div>
-    ${(() => { const fg = ps.filter(p => d.liberados[p.id] != null && (p.fornos || []).length); return fg.length && !fg.some(p => p.fornos.some(id => d.liberados[id] != null))
-      ? `<p class="note" id="avisoForno" style="margin:0 0 10px">Esta loja tem fogões que aceitam forno, mas nenhum forno avulso liberado, então ela não verá a opção de forno. Para oferecer, libere a categoria Fornos avulsos.</p>` : ''; })()}
-    <div class="tbl-wrap"><table class="tbl lib" style="min-width:0"><thead><tr><th><span class="sr">Liberar</span></th><th>Produto</th><th class="num">Tabela JCN</th><th class="num">Valor para a loja (R$)</th></tr></thead><tbody>
-    ${porCat.map(([c, lista]) => `<tr class="grp"><th colspan="4" scope="colgroup"><span>${esc(c.nome)}</span><button class="btn ghost sm" data-act="lib-cat" data-id="${esc(c.id)}">Liberar a categoria</button></th></tr>` + lista.map(p => { const on = d.liberados[p.id] != null; return `<tr>
-      <td><input type="checkbox" id="lb-${esc(p.id)}" data-act="lib" data-id="${esc(p.id)}" ${on ? 'checked' : ''} aria-label="Liberar ${esc(rotulo(p))}"></td>
-      <td><label for="lb-${esc(p.id)}"><b>${esc(p.nome)}</b><br><span class="note">${p.grelha ? '' : `<i class="sw" style="background:${esc(p.hex)}"></i>`}${esc(detalhe(p))}${p.codigo ? ' · ' + esc(p.codigo) : ''}</span></label></td>
-      <td class="num note">${precoTxt(p.preco)}</td>
-      <td class="num"><input class="inp preco" id="pv-${esc(p.id)}" type="number" min="0" step="0.01" inputmode="decimal" aria-label="Valor de ${esc(rotulo(p))} para a loja" data-f="liberados.${esc(p.id)}" data-num value="${on ? esc(d.liberados[p.id]) : ''}" ${on ? '' : 'disabled'}></td></tr>`; }).join('')).join('')}
-    </tbody></table></div></div>
+  ${painelLiberados(d, 'loja')}
   <label class="check"><input type="checkbox" id="ctAtivo" data-f="ativo" ${d.ativo ? 'checked' : ''}>Conta ativa (pode entrar e fazer pedidos)</label>
   <div class="foot"><button class="btn" data-act="salvar-conta">Salvar conta</button><button class="btn ghost" data-act="fechar">Cancelar</button></div>`;
 }
@@ -1720,7 +1794,7 @@ const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a +
 
 function vFinanceiro() {
   const per = PERIODOS.some(x => x[0] === ui.finPer) ? ui.finPer : (ui.finPer = 'mes'), faixa = intervalo(per), hoje = hojeISO();
-  const todos = state.pedidos, noPer = todos.filter(p => noPeriodo(p, faixa));
+  const todos = state.pedidos.filter(p => !p.cancelado), noPer = todos.filter(p => noPeriodo(p, faixa));
   const vend = noPer.filter(pagoOk), aguard = noPer.filter(paraConferir), semPag = noPer.filter(p => !ehBoleto(p) && p.pix.status === 'sem');
   const total = somaPed(vend);
   // recebido e a receber
@@ -2942,9 +3016,9 @@ function avisoOrc() {
 
 /* o editor do orçamento: o mesmo na tela de ligações e na gaveta. Duas abas: os itens e o motivo de não ter sido concluído */
 function orcEditor(d, onde, so) {
-  const ativos = state.catalogo.produtos.filter(p => p.ativo), dis = so ? 'disabled' : '', aba = d.aba || 'itens', id = x => `${x}-${onde}`;
+  const ativos = state.catalogo.produtos.filter(p => p.ativo && !p.fora), dis = so ? 'disabled' : '', aba = d.aba || 'itens', id = x => `${x}-${onde}`;
   const opcoes = it => `<option value="">Escolha o produto</option>${state.catalogo.categorias.map(c => { const g = ativos.filter(a => a.cat === c.id); return g.length ? `<optgroup label="${esc(c.nome)}">${g.map(a => `<option value="${esc(a.id)}" ${a.id === it.produto_id ? 'selected' : ''}>${esc(rotulo(a))}${a.codigo ? ' · ' + esc(a.codigo) : ''}</option>`).join('')}</optgroup>` : ''; }).join('')}
-    <option value="__livre" ${it.livre && !it.produto_id ? 'selected' : ''}>Outro item (escrever)</option>`;
+    ${repCat() ? '' : `<option value="__livre" ${it.livre && !it.produto_id ? 'selected' : ''}>Outro item (escrever)</option>`}`;
   const itensV = d.itens.filter(it => it.produto_id || it.livre || (it.descricao || '').trim());
   const linhas = d.itens.map((it, i) => !(it.produto_id || it.livre || (it.descricao || '').trim()) ? '' : `<div class="orc-item">
       <div class="orc-prod">${it.produto_id || !it.livre ? `<div class="orc-desc"><b>${esc(it.descricao || 'Item')}</b>${it.codigo ? `<small>${esc(it.codigo)}</small>` : ''}</div>`
@@ -2971,7 +3045,7 @@ function orcEditor(d, onde, so) {
 /* montador do orçamento: escolhe o produto com cliques, depois a grelha (obrigatória) e o forno (opcional) */
 function montador(d, onde) {
   const k = d.pick || (d.pick = { cat: 'colors', busca: '', modelo: '', sel: '', forno: '', qtd: 1 });
-  const ativos = state.catalogo.produtos.filter(p => p.ativo && (cat(p.cat) || {}).ativa), u = eu();
+  const ativos = vendaveis(), u = eu();
   const de = (a, x) => `data-act="${a}" data-onde="${onde}"${x || ''}`;
   if (k.modelo) {
     const g = modelos(ativos).find(m => m.some(p => p.id === k.modelo)) || [], p0 = g[0];
@@ -3005,11 +3079,18 @@ function montador(d, onde) {
         <small>${esc(g.map(x => x.codigo).filter(Boolean).join(' · '))}</small><span class="pk-pr">${isFinite(mn) ? (g.length > 1 ? 'a partir de ' : '') + brl(mn) : 'Preço a definir'}${g.length > 1 ? ' · 2 grelhas' : ''}${fo ? ' · forno opcional' : ''}</span></button>`; }).join('') || '<p class="note">Nenhum produto encontrado.</p>'}</div></div>`;
 }
 // confere o rascunho antes de gravar; devolve a mensagem de erro ou ''
+const repCat = () => !!state.repCat && !!eu() && eu().papel === 'representante';
 function problemaOrc(d) {
   const itens = d.itens.filter(i => i.produto_id || (i.descricao || '').trim());
   if (!itens.length) return 'Coloque pelo menos um item no orçamento.';
   if (itens.some(i => !(+i.quantidade >= 1))) return 'Informe a quantidade de cada item.';
   if (itens.some(i => !(+i.preco_unit >= 0))) return 'Confira o preço dos itens.';
+  if (repCat() && !d.pedido_id) {                       // representante com produtos escolhidos: só os dele, nunca abaixo do valor liberado
+    const fora = itens.find(i => { const p = prod(i.produto_id); return !p || p.fora; });
+    if (fora) return `"${fora.descricao || 'Item sem produto'}" não está entre os seus produtos. Escolha um produto da sua lista.`;
+    const baixo = itens.find(i => +i.preco_unit < prod(i.produto_id).preco - 0.001);
+    if (baixo) return `O valor de ${baixo.descricao} não pode ficar abaixo de ${brl(prod(baixo.produto_id).preco)}.`;
+  }
   if (d.situacao === 'nao_concluido' && !d.motivo) return 'Na aba "Por que não fechou", escolha o motivo.';
   return '';
 }
@@ -3209,7 +3290,7 @@ function vOrcamentos(u) {
     ${lista.slice(0, 200).map(o => `<tr><td><button class="linkbtn" data-act="oe-abrir" data-id="${esc(o.id)}"><b>${esc(o.numero)}</b></button></td><td>${dataBR(diaDe(o.criado_em))}</td>
       <td><button class="linkbtn" data-act="oe-abrir" data-id="${esc(o.id)}"><b>${esc(nomeCliOrc(o))}</b></button><div class="note">${esc(cidadeCliOrc(o))}${o.itens.length ? ' · ' + o.itens.length + (o.itens.length === 1 ? ' item' : ' itens') : ''}</div></td>
       ${adm ? `<td>${esc(nomeVend(o.vendedor_id))}</td>` : ''}<td class="num">${brl(totalOrc(o))}</td>
-      <td>${chipOrc(o.situacao)}${o.pedido_id ? `<div class="note">${(p => p ? `<button class="linkbtn" data-act="abrir-pedido" data-id="${esc(p.id)}">pedido nº ${esc(p.numero)}</button>` : 'virou pedido')(state.pedidos.find(p => p.id === o.pedido_id))}</div>` : o.validade && o.situacao === 'aberto' && o.validade < hojeISO() ? '<div class="note bad-t">validade vencida</div>' : ''}</td>
+      <td>${chipOrc(o.situacao)}${o.pedido_id ? `<div class="note">${(p => p ? `<button class="linkbtn" data-act="abrir-pedido" data-id="${esc(p.id)}">pedido nº ${esc(p.numero)}</button>${p.cancelado ? ' <span class="bad-t">cancelado</span>' : ''}` : 'virou pedido')(state.pedidos.find(p => p.id === o.pedido_id))}</div>` : o.validade && o.situacao === 'aberto' && o.validade < hojeISO() ? '<div class="note bad-t">validade vencida</div>' : ''}</td>
       <td class="acoes"><button class="btn ghost sm" data-act="oe-pdf" data-id="${esc(o.id)}">PDF</button></td></tr>`).join('')}</tbody></table></div>`
     : `<div class="panel"><p class="note" style="margin:0">${base.length ? 'Nenhum orçamento nesta situação.' : 'Nenhum orçamento ainda. Clique em "Novo orçamento".'}</p></div>`}`;
 }
@@ -3463,6 +3544,9 @@ async function carregarCatalogo() {
   const [cats, prods, fotos, fornos, vit, precos] = await Promise.all([
     SB.sel('categorias', 'select=*&order=ordem.asc,nome.asc'), selTudo('produtos', 'select=*&order=ordem.asc,nome.asc,id.asc'), selTudo('fotos_produto', 'select=*&order=ordem.asc,id.asc'),
     selTudo('fornos_do_fogao', 'select=*&order=ordem.asc,fogao_id.asc,forno_id.asc'), selTudo('vitrine', 'select=*&order=produto_id.asc'), interno ? selTudo('precos', 'select=produto_id,valor&order=produto_id.asc') : []]);
+  // representante com produtos escolhidos pela administração: só esses, pelos valores dele (sem nenhum, a tabela inteira)
+  const libRep = papelAtual() === 'representante' ? await selTudo('catalogo_loja', 'select=produto_id,preco&order=produto_id.asc').catch(() => []) : [];
+  const rep = new Map(libRep.map(x => [x.produto_id, Number(x.preco)])); state.repCat = rep.size > 0;
   const catDe = new Map(cats.map(c => [c.id, CAT_ID[c.slug] || c.slug]));
   const preco = new Map(precos.map(x => [x.produto_id, Number(x.valor)])), vitr = new Map(vit.map(x => [x.produto_id, Number(x.preco)]));
   const fotosDe = {}, fornosDe2 = {};
@@ -3472,7 +3556,7 @@ async function carregarCatalogo() {
     versao: 4,
     categorias: cats.map(c => ({ id: catDe.get(c.id), uuid: c.id, nome: c.nome, ativa: c.ativa, ordem: c.ordem })),
     produtos: prods.map(r => ({ id: r.id, cat: catDe.get(r.categoria_id), nome: r.nome, codigo: r.codigo || '', cor: r.cor || '', hex: r.cor_hex || '#8A8A8A', slogan: r.frase || '', historia: r.historia || '',
-      specs: Array.isArray(r.especificacoes) ? r.especificacoes : [], preco: preco.get(r.id) || 0, vit: vitr.has(r.id) ? vitr.get(r.id) : null, grupo: r.grupo || '', grelha: r.grelha || '', sub: r.subgrupo || '',
+      specs: Array.isArray(r.especificacoes) ? r.especificacoes : [], preco: rep.size ? rep.get(r.id) || 0 : preco.get(r.id) || 0, fora: rep.size > 0 && !rep.has(r.id), vit: vitr.has(r.id) ? vitr.get(r.id) : null, grupo: r.grupo || '', grelha: r.grelha || '', sub: r.subgrupo || '',
       fornos: fornosDe2[r.id] || [], mostrar_preco: !!r.mostrar_preco, ativo: !!r.ativo, ordem: r.ordem, fotos: fotosDe[r.id] || [] }))
   };
   // os onze fogões da Linha Colors têm um apelido fixo (zilda, carlos...) usado nas faixas da abertura
@@ -3498,7 +3582,7 @@ async function carregarContas() {
   const [perfis, lib] = await Promise.all([selTudo('perfis', 'select=*&order=criado_em.asc,id.asc'), selTudo('catalogo_loja', 'select=*&order=loja_id.asc,produto_id.asc')]);
   const libDe = {}; lib.forEach(x => { (libDe[x.loja_id] = libDe[x.loja_id] || {})[x.produto_id] = Number(x.preco); });
   state.usuarios = perfis.map(r => ({ id: r.id, nome: r.nome, email: r.email || '', login: r.login || '', papel: r.papel, empresa: r.empresa || '', doc: r.documento || '', cidade: r.cidade || '', contato: r.contato || '',
-    vendedorResp: r.vendedor_id || '', ativo: !!r.ativo, senha: true, liberados: r.papel === 'ecommerce' ? (libDe[r.id] || {}) : undefined }));
+    vendedorResp: r.vendedor_id || '', ativo: !!r.ativo, senha: true, liberados: r.papel === 'ecommerce' || r.papel === 'representante' ? (libDe[r.id] || {}) : undefined }));
   espelho.usuarios = clone(state.usuarios);
 }
 function pedidoDe(r, itens, anexos, parcelas) {
@@ -3511,6 +3595,7 @@ function pedidoDe(r, itens, anexos, parcelas) {
     pagamento: r.forma_pagamento === 'boleto' ? { forma: 'boleto', dias: r.boleto_dias || [], status: r.boleto_status, por: r.boleto_decidido_por, em: r.boleto_decidido_em ? dataLocal(r.boleto_decidido_em) : '', motivo: r.boleto_motivo || '',
       recebidas: parcelas.filter(p => p.recebida_em).map(p => p.dias) } : { forma: 'pix' },
     pix: { status: PIX_BD[r.pix_status], arquivo: comp ? comp.id : null, por: r.pix_conferido_por },
+    cancelado: r.cancelado_em ? { em: dataLocal(r.cancelado_em), por: r.cancelado_por || '', motivo: r.cancelado_motivo || '' } : null,
     etiquetas: anexos.filter(a => a.tipo === 'etiqueta_envio').sort((a, b) => a.enviado_em < b.enviado_em ? -1 : 1).map(a => a.id), envio: ENVIO_BD[r.envio_status] };
 }
 async function carregarPedidos() {
@@ -3858,7 +3943,32 @@ const NUCLEO = {
   async salvarOrcamento(d) { const r = await SB.rpc('salvar_orcamento', { p: d }); await carregarCRM(); return r; },
   async fecharOrcamento(id, p) { const r = await SB.rpc('fechar_orcamento', { p_id: id, p }); await carregarPedidos(); return r; },
   async apagarOrcamento(id) { await SB.del('orcamentos', { id }); await carregarCRM(); },
-  async definirSenha(id, senha) { await SB.rpc('definir_senha', { p_usuario: id, p_senha: senha }); }
+  async definirSenha(id, senha) { await SB.rpc('definir_senha', { p_usuario: id, p_senha: senha }); },
+  // usuário da equipe (não loja): criar ou editar, com os produtos e valores do representante
+  async salvarUsuario(u, senha, antigo) {
+    const lib = u.papel === 'representante' ? u.liberados : {};
+    const perfil = { nome: u.nome, papel: u.papel, empresa: u.empresa || null, contato: u.contato || null, ativo: !!u.ativo };
+    if (!antigo) return NUCLEO.criarAcesso({ email: u.email, senha, perfil, liberados: Object.keys(lib).length ? lib : undefined });
+    if (u.email !== (antigo.email || '').toLowerCase()) await SB.rpc('definir_email', { p_usuario: antigo.id, p_email: u.email });
+    const era = { nome: antigo.nome, papel: antigo.papel, empresa: antigo.empresa || null, contato: antigo.contato || null, ativo: !!antigo.ativo };
+    const muda = {}; Object.keys(perfil).forEach(k => { if (perfil[k] !== era[k]) muda[k] = perfil[k]; });
+    if (Object.keys(muda).length) { const r = await SB.upd('perfis', { id: antigo.id }, muda); if (!r.length) throw new Error('Você não tem permissão para alterar este usuário.'); }
+    await NUCLEO.gravarLiberados(antigo.id, antigo.liberados || {}, lib);
+    if (senha) await SB.rpc('definir_senha', { p_usuario: antigo.id, p_senha: senha });
+    await carregarContas();
+    return antigo.id;
+  },
+  async cancelarPedido(id, motivo) {
+    const r = await SB.upd('pedidos', { id }, motivo === null ? { cancelado_em: null } : { cancelado_em: new Date().toISOString(), cancelado_motivo: motivo || null });
+    if (!r.length) throw new Error('Só a administração cancela pedidos.');
+    await carregarPedidos();
+  },
+  async apagarPedido(id) {
+    const an = await SB.sel('anexos', 'select=id,bucket,caminho&pedido_id=eq.' + id);
+    const r = await SB.del('pedidos', { id }); if (!r.length) throw new Error('Só a administração apaga pedidos.');
+    for (const a of an) { try { await SB.apagar(a.bucket, a.caminho); } catch (e) { } }       // o comprovante e as etiquetas saem do armazenamento
+    await carregarPedidos();
+  }
 };
 
 // O que as telas chamam: cada operação entra na mesma fila das gravações (uma de cada vez).

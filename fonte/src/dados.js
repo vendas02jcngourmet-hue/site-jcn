@@ -51,6 +51,9 @@ async function carregarCatalogo() {
   const [cats, prods, fotos, fornos, vit, precos] = await Promise.all([
     SB.sel('categorias', 'select=*&order=ordem.asc,nome.asc'), selTudo('produtos', 'select=*&order=ordem.asc,nome.asc,id.asc'), selTudo('fotos_produto', 'select=*&order=ordem.asc,id.asc'),
     selTudo('fornos_do_fogao', 'select=*&order=ordem.asc,fogao_id.asc,forno_id.asc'), selTudo('vitrine', 'select=*&order=produto_id.asc'), interno ? selTudo('precos', 'select=produto_id,valor&order=produto_id.asc') : []]);
+  // representante com produtos escolhidos pela administração: só esses, pelos valores dele (sem nenhum, a tabela inteira)
+  const libRep = papelAtual() === 'representante' ? await selTudo('catalogo_loja', 'select=produto_id,preco&order=produto_id.asc').catch(() => []) : [];
+  const rep = new Map(libRep.map(x => [x.produto_id, Number(x.preco)])); state.repCat = rep.size > 0;
   const catDe = new Map(cats.map(c => [c.id, CAT_ID[c.slug] || c.slug]));
   const preco = new Map(precos.map(x => [x.produto_id, Number(x.valor)])), vitr = new Map(vit.map(x => [x.produto_id, Number(x.preco)]));
   const fotosDe = {}, fornosDe2 = {};
@@ -60,7 +63,7 @@ async function carregarCatalogo() {
     versao: 4,
     categorias: cats.map(c => ({ id: catDe.get(c.id), uuid: c.id, nome: c.nome, ativa: c.ativa, ordem: c.ordem })),
     produtos: prods.map(r => ({ id: r.id, cat: catDe.get(r.categoria_id), nome: r.nome, codigo: r.codigo || '', cor: r.cor || '', hex: r.cor_hex || '#8A8A8A', slogan: r.frase || '', historia: r.historia || '',
-      specs: Array.isArray(r.especificacoes) ? r.especificacoes : [], preco: preco.get(r.id) || 0, vit: vitr.has(r.id) ? vitr.get(r.id) : null, grupo: r.grupo || '', grelha: r.grelha || '', sub: r.subgrupo || '',
+      specs: Array.isArray(r.especificacoes) ? r.especificacoes : [], preco: rep.size ? rep.get(r.id) || 0 : preco.get(r.id) || 0, fora: rep.size > 0 && !rep.has(r.id), vit: vitr.has(r.id) ? vitr.get(r.id) : null, grupo: r.grupo || '', grelha: r.grelha || '', sub: r.subgrupo || '',
       fornos: fornosDe2[r.id] || [], mostrar_preco: !!r.mostrar_preco, ativo: !!r.ativo, ordem: r.ordem, fotos: fotosDe[r.id] || [] }))
   };
   // os onze fogões da Linha Colors têm um apelido fixo (zilda, carlos...) usado nas faixas da abertura
@@ -86,7 +89,7 @@ async function carregarContas() {
   const [perfis, lib] = await Promise.all([selTudo('perfis', 'select=*&order=criado_em.asc,id.asc'), selTudo('catalogo_loja', 'select=*&order=loja_id.asc,produto_id.asc')]);
   const libDe = {}; lib.forEach(x => { (libDe[x.loja_id] = libDe[x.loja_id] || {})[x.produto_id] = Number(x.preco); });
   state.usuarios = perfis.map(r => ({ id: r.id, nome: r.nome, email: r.email || '', login: r.login || '', papel: r.papel, empresa: r.empresa || '', doc: r.documento || '', cidade: r.cidade || '', contato: r.contato || '',
-    vendedorResp: r.vendedor_id || '', ativo: !!r.ativo, senha: true, liberados: r.papel === 'ecommerce' ? (libDe[r.id] || {}) : undefined }));
+    vendedorResp: r.vendedor_id || '', ativo: !!r.ativo, senha: true, liberados: r.papel === 'ecommerce' || r.papel === 'representante' ? (libDe[r.id] || {}) : undefined }));
   espelho.usuarios = clone(state.usuarios);
 }
 function pedidoDe(r, itens, anexos, parcelas) {
@@ -99,6 +102,7 @@ function pedidoDe(r, itens, anexos, parcelas) {
     pagamento: r.forma_pagamento === 'boleto' ? { forma: 'boleto', dias: r.boleto_dias || [], status: r.boleto_status, por: r.boleto_decidido_por, em: r.boleto_decidido_em ? dataLocal(r.boleto_decidido_em) : '', motivo: r.boleto_motivo || '',
       recebidas: parcelas.filter(p => p.recebida_em).map(p => p.dias) } : { forma: 'pix' },
     pix: { status: PIX_BD[r.pix_status], arquivo: comp ? comp.id : null, por: r.pix_conferido_por },
+    cancelado: r.cancelado_em ? { em: dataLocal(r.cancelado_em), por: r.cancelado_por || '', motivo: r.cancelado_motivo || '' } : null,
     etiquetas: anexos.filter(a => a.tipo === 'etiqueta_envio').sort((a, b) => a.enviado_em < b.enviado_em ? -1 : 1).map(a => a.id), envio: ENVIO_BD[r.envio_status] };
 }
 async function carregarPedidos() {
@@ -446,7 +450,32 @@ const NUCLEO = {
   async salvarOrcamento(d) { const r = await SB.rpc('salvar_orcamento', { p: d }); await carregarCRM(); return r; },
   async fecharOrcamento(id, p) { const r = await SB.rpc('fechar_orcamento', { p_id: id, p }); await carregarPedidos(); return r; },
   async apagarOrcamento(id) { await SB.del('orcamentos', { id }); await carregarCRM(); },
-  async definirSenha(id, senha) { await SB.rpc('definir_senha', { p_usuario: id, p_senha: senha }); }
+  async definirSenha(id, senha) { await SB.rpc('definir_senha', { p_usuario: id, p_senha: senha }); },
+  // usuário da equipe (não loja): criar ou editar, com os produtos e valores do representante
+  async salvarUsuario(u, senha, antigo) {
+    const lib = u.papel === 'representante' ? u.liberados : {};
+    const perfil = { nome: u.nome, papel: u.papel, empresa: u.empresa || null, contato: u.contato || null, ativo: !!u.ativo };
+    if (!antigo) return NUCLEO.criarAcesso({ email: u.email, senha, perfil, liberados: Object.keys(lib).length ? lib : undefined });
+    if (u.email !== (antigo.email || '').toLowerCase()) await SB.rpc('definir_email', { p_usuario: antigo.id, p_email: u.email });
+    const era = { nome: antigo.nome, papel: antigo.papel, empresa: antigo.empresa || null, contato: antigo.contato || null, ativo: !!antigo.ativo };
+    const muda = {}; Object.keys(perfil).forEach(k => { if (perfil[k] !== era[k]) muda[k] = perfil[k]; });
+    if (Object.keys(muda).length) { const r = await SB.upd('perfis', { id: antigo.id }, muda); if (!r.length) throw new Error('Você não tem permissão para alterar este usuário.'); }
+    await NUCLEO.gravarLiberados(antigo.id, antigo.liberados || {}, lib);
+    if (senha) await SB.rpc('definir_senha', { p_usuario: antigo.id, p_senha: senha });
+    await carregarContas();
+    return antigo.id;
+  },
+  async cancelarPedido(id, motivo) {
+    const r = await SB.upd('pedidos', { id }, motivo === null ? { cancelado_em: null } : { cancelado_em: new Date().toISOString(), cancelado_motivo: motivo || null });
+    if (!r.length) throw new Error('Só a administração cancela pedidos.');
+    await carregarPedidos();
+  },
+  async apagarPedido(id) {
+    const an = await SB.sel('anexos', 'select=id,bucket,caminho&pedido_id=eq.' + id);
+    const r = await SB.del('pedidos', { id }); if (!r.length) throw new Error('Só a administração apaga pedidos.');
+    for (const a of an) { try { await SB.apagar(a.bucket, a.caminho); } catch (e) { } }       // o comprovante e as etiquetas saem do armazenamento
+    await carregarPedidos();
+  }
 };
 
 // O que as telas chamam: cada operação entra na mesma fila das gravações (uma de cada vez).

@@ -18,7 +18,7 @@ const diasEntre = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a +
 
 function vFinanceiro() {
   const per = PERIODOS.some(x => x[0] === ui.finPer) ? ui.finPer : (ui.finPer = 'mes'), faixa = intervalo(per), hoje = hojeISO();
-  const todos = state.pedidos, noPer = todos.filter(p => noPeriodo(p, faixa));
+  const todos = state.pedidos.filter(p => !p.cancelado), noPer = todos.filter(p => noPeriodo(p, faixa));
   const vend = noPer.filter(pagoOk), aguard = noPer.filter(paraConferir), semPag = noPer.filter(p => !ehBoleto(p) && p.pix.status === 'sem');
   const total = somaPed(vend);
   // recebido e a receber

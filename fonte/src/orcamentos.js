@@ -51,7 +51,7 @@ function vOrcamentos(u) {
     ${lista.slice(0, 200).map(o => `<tr><td><button class="linkbtn" data-act="oe-abrir" data-id="${esc(o.id)}"><b>${esc(o.numero)}</b></button></td><td>${dataBR(diaDe(o.criado_em))}</td>
       <td><button class="linkbtn" data-act="oe-abrir" data-id="${esc(o.id)}"><b>${esc(nomeCliOrc(o))}</b></button><div class="note">${esc(cidadeCliOrc(o))}${o.itens.length ? ' · ' + o.itens.length + (o.itens.length === 1 ? ' item' : ' itens') : ''}</div></td>
       ${adm ? `<td>${esc(nomeVend(o.vendedor_id))}</td>` : ''}<td class="num">${brl(totalOrc(o))}</td>
-      <td>${chipOrc(o.situacao)}${o.pedido_id ? `<div class="note">${(p => p ? `<button class="linkbtn" data-act="abrir-pedido" data-id="${esc(p.id)}">pedido nº ${esc(p.numero)}</button>` : 'virou pedido')(state.pedidos.find(p => p.id === o.pedido_id))}</div>` : o.validade && o.situacao === 'aberto' && o.validade < hojeISO() ? '<div class="note bad-t">validade vencida</div>' : ''}</td>
+      <td>${chipOrc(o.situacao)}${o.pedido_id ? `<div class="note">${(p => p ? `<button class="linkbtn" data-act="abrir-pedido" data-id="${esc(p.id)}">pedido nº ${esc(p.numero)}</button>${p.cancelado ? ' <span class="bad-t">cancelado</span>' : ''}` : 'virou pedido')(state.pedidos.find(p => p.id === o.pedido_id))}</div>` : o.validade && o.situacao === 'aberto' && o.validade < hojeISO() ? '<div class="note bad-t">validade vencida</div>' : ''}</td>
       <td class="acoes"><button class="btn ghost sm" data-act="oe-pdf" data-id="${esc(o.id)}">PDF</button></td></tr>`).join('')}</tbody></table></div>`
     : `<div class="panel"><p class="note" style="margin:0">${base.length ? 'Nenhum orçamento nesta situação.' : 'Nenhum orçamento ainda. Clique em "Novo orçamento".'}</p></div>`}`;
 }
